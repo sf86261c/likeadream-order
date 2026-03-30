@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>LikeaDream 訂購單</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+      :root { --primary: #d4a373; --text: #4a4a4a; --danger: #d63031; --success: #52b788; --bg-light: #fff8ee; }
+      body { font-family: 'Noto Sans TC', sans-serif; margin: 0; padding: 10px; color: var(--text); background: #fdf5e6; min-height: 100vh; }
+      .container { max-width: 600px; margin: 20px auto; background: rgba(255, 255, 255, 0.98); padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); padding-bottom: 80px; }
+      h2 { text-align: center; color: #6b4f4f; margin-bottom: 5px; }
+      .subtitle { text-align: center; color: #888; font-size: 0.9rem; margin-bottom: 25px; }
+      label { display: block; margin-top: 15px; margin-bottom: 5px; font-weight: bold; color: #6b4f4f; }
+      .required::after { content: " *"; color: #d63031; }
+      input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+      .row { display: flex; gap: 10px; }
+      .col-6 { flex: 1; }
+      .item-card { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 5px solid var(--primary); }
+      .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+      .btn-remove { background: #ffe5e5; color: var(--danger); border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; }
+      .spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; }
+      .spec-label { font-size: 12px; color: #888; }
+      .split-row { display: flex; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #eee; }
+      .split-group { flex: 1; text-align: center; }
+      .split-group label { margin-top: 0; font-size: 13px; color: #666; margin-bottom: 4px; }
+      .split-group input { text-align: center; border: 2px solid #e4dccb; }
+      .split-group input:focus { border-color: var(--primary); }
+      .item-subtotal { text-align: right; font-size: 13px; color: #888; margin-top: 5px; }
+      .sticky-footer { background: var(--bg-light); border: 2px solid #d4a373; border-radius: 10px; padding: 15px; margin-top: 20px; text-align: center; }
+      .footer-stat { font-weight: bold; color: #8c6b2d; font-size: 1.1rem; }
+      .footer-detail { font-size: 0.9rem; color: #666; margin-top: 5px; }
+      .store-info-box { display: none; background: #eef7fa; border: 1px solid #b8daff; border-radius: 8px; padding: 15px; color: #004085; font-size: 14px; line-height: 1.6; margin-top: 10px; }
+      .split-checkbox-wrapper { margin-top: 12px; display: flex; align-items: center; background: #fcfcfc; padding: 10px; border: 1px dashed #ccc; border-radius: 8px; }
+      .split-checkbox-wrapper input[type="checkbox"] { width: 20px; height: 20px; margin-right: 10px; accent-color: var(--primary); cursor: pointer; }
+      .split-checkbox-wrapper label { margin: 0; color: #555; font-size: 15px; font-weight: normal; cursor: pointer; }
+      .split-hint { display: none; color: #d63031; font-weight: bold; font-size: 13px; margin-top: 8px; padding-left: 35px; animation: pulse 2s infinite; line-height: 1.4; }
+      .btn { width: 100%; padding: 15px; border: none; border-radius: 50px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+      .btn-add { background: #fff; border: 2px dashed #ccc; color: #888; }
+      .btn-submit { background: var(--primary); color: white; font-size: 18px; }
+      .btn-submit:disabled { background: #ccc; cursor: not-allowed; }
+      .btn-outline { background: transparent; border: 1px solid #666; color: #666; margin-top: 10px; }
+      .success-card { text-align: center; padding: 10px 0; }
+      .success-icon { font-size: 4rem; color: var(--success); margin-bottom: 15px; }
+      .success-title { font-size: 1.5rem; font-weight: bold; color: #333; margin-bottom: 10px; }
+      .success-desc { color: #888; font-size: 14px; margin-bottom: 20px; }
+      .order-summary { background: #f8f9fa; border-radius: 10px; padding: 20px; text-align: left; display: inline-block; width: 100%; box-sizing: border-box; border: 1px solid #eee; margin-bottom: 20px; }
+      .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; color: #444; }
+      .summary-item { font-size: 13px; color: #666; margin-bottom: 5px; padding-left: 10px; border-left: 3px solid #ddd; }
+      .badge { display: inline-block; padding: 2px 8px; background: #e3f2fd; color: #0d6efd; border-radius: 4px; font-size: 12px; }
+      @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+      .hide { display: none !important; }
+    </style>
+  </head>
+  <body>
+
+    <div class="container" id="formView">
+      <div id="liffStatus" style="font-size:12px; color:#ccc; text-align:center; margin-bottom:5px;">Loading...</div>
+
+      <h2>🍰 LikeaDream訂購單</h2>
+      <p class="subtitle">請填寫基本資料與選購品項</p>
+
+      <form id="orderForm" onsubmit="event.preventDefault(); prepareAndSubmit()">
+        <label class="required">訂購人姓名</label>
+        <input type="text" id="cName" placeholder="請輸入您的姓名" required>
+
+        <label class="required">聯絡電話 (10碼)</label>
+        <input type="tel" id="cPhone" placeholder="範例：0912345678" maxlength="10" pattern="\d{10}" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '');" required>
+
+        <label>載具/統一編號 (選填)</label>
+        <input type="text" id="cTaxId" placeholder="若需載具/統編請填寫">
+
+        <hr style="border:0; border-top:1px dashed #ddd; margin: 20px 0;">
+        <label style="font-size:1.1rem; color:#d4a373;">選購品項</label>
+        <div style="font-size:12px; color:#999; margin-bottom:10px;">請分別填寫每個品項的「自取」與「寄送」數量</div>
+
+        <div id="itemList"></div>
+        <button type="button" class="btn btn-add" id="addBtn" onclick="addItem()">＋ 新增品項 (還可加 <span id="remainCount">4</span> 項)</button>
+
+        <div class="sticky-footer">
+          <div class="footer-stat">總訂購量：<span id="totalAll">0</span> 盒</div>
+          <div class="footer-detail">
+            ( 🏪 門市自取：<span id="totalPick">0</span> / 🚚 宅配寄送：<span id="totalShip">0</span> )
+          </div>
+        </div>
+
+        <div id="addressSection">
+          <label class="required">配送地址</label>
+          <input type="text" id="cAddress" placeholder="縣市/區域/路段...">
+
+          <div class="split-checkbox-wrapper">
+            <input type="checkbox" id="splitShipCheck" onchange="toggleSplitHint()">
+            <label for="splitShipCheck">我有分批寄送給親友的需求</label>
+          </div>
+          <div id="splitHint" class="split-hint">
+            專人會額外提供分批表單，訂單僅需填寫訂購總數即可
+          </div>
+        </div>
+
+        <div id="storeInfoBox" class="store-info-box">
+          <strong>🏪 門市自取資訊</strong><br>
+          地址：台中市沙鹿區平等路52號<br>
+          電話：04-26525522<br>
+          取貨時間：11:00~17:45 (免運費)
+        </div>
+
+        <div class="row">
+          <div class="col-6">
+            <label class="required" id="dateLabel">預計收件/取貨日</label>
+            <input type="date" id="cDate" required onchange="updateNotices()">
+            <div style="font-size:12px; color:#888; margin-top:2px;">*週日無配送</div>
+            <div style="color:#d63031; font-weight:900; font-size:13px; margin-top:5px; line-height:1.4; animation: pulse 1.5s infinite;">
+              蜂蜜蛋糕(同旋轉筒)請至少保留10個日曆天<br>
+              曲奇餅乾至少保留7個日曆天
+            </div>
+          </div>
+          <div class="col-6">
+            <label>時段</label>
+            <select id="cTime" onchange="updateNotices()">
+              <option value="不指定">不指定</option>
+              <option value="13:00前">13:00前</option>
+              <option value="14:00~18:00">14:00~18:00</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="noticeBox" style="display:none; margin-top:10px; padding:12px; background:#fff0f0; border-left:5px solid #d63031; color:#d63031; font-size:14px; font-weight:bold;"></div>
+
+        <label>備註 (選填)</label>
+        <input type="text" id="cNote" placeholder="例如：管理室代收...">
+
+        <div class="payment-box" style="background:#fff8ee; border:2px solid #e4dccb; border-radius:10px; padding:15px; margin-top:25px;">
+          <label style="margin-top:0;">付款方式</label>
+          <select id="paymentMethod">
+            <option value="匯款轉帳" selected>匯款轉帳</option>
+            <option value="門市付款" id="storePaymentOption" hidden disabled>門市付款</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn btn-submit" id="sBtn" disabled>確認送出訂單</button>
+        <div id="btnHint" style="text-align:center; color:#d63031; font-size:12px; margin-top:5px;">請至少選擇一盒商品</div>
+      </form>
+    </div>
+
+    <div class="container hide" id="successView">
+      <div class="success-card">
+        <i class="bi bi-check-circle-fill success-icon"></i>
+        <div class="success-title">資料儲存成功！</div>
+
+        <div style="margin-bottom: 25px;">
+          <textarea id="copyArea" readonly style="position:absolute; left:-9999px;"></textarea>
+          <div id="copyStatusMsg" style="font-weight:bold; font-size:16px; margin-bottom:15px; line-height: 1.5;"></div>
+          <div id="manualCopyBox" style="display:none; margin-bottom:15px;">
+            <div style="color:#d63031; font-weight:bold; font-size:16px; margin-bottom:10px; line-height: 1.5;">
+              ⚠ 請點下方按鈕複製訂單內容後，再前往 LINE 回傳<br>請勿以截圖的方式傳送
+            </div>
+            <button class="btn btn-submit" onclick="manualCopy()" type="button" style="background:#d4a373;">
+              📋 複製訂單內容
+            </button>
+          </div>
+          <a id="goToLineArea" href="https://lin.ee/oOteG0d" target="_blank" style="text-decoration:none;">
+            <button class="btn btn-submit" type="button" style="background:#06c755;">
+              🚀 前往 LINE 回傳訂單
+            </button>
+          </a>
+        </div>
+        <div class="order-summary" id="summaryBox"></div>
+
+        <div style="margin-top: 10px;">
+           <button class="btn btn-outline" onclick="window.location.reload()">填寫下一張</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      var GAS_API_URL = "https://script.google.com/macros/s/AKfycbwcfq-WhYc4cYYpU0OPfqXZiGYFN_Bqy7V-Hv9TQAfY220oyQoQfGMmxhHcO65C-9ocUA/exec";
+
+      var currentUserId = "";
+      var currentLineName = "";
+
+      var PRODUCT_DATA = {
+        "蜂蜜蛋糕": { flavors: ["經典原味", "伯爵紅茶", "茉莉花茶", "原味+伯爵", "原味+茉莉", "伯爵+茉莉"], stamps: ["慶祝派對", "甜蜜樂章", "馬年限定"], packs: ["祝福緞帶", "歡樂派對", "森林旋律"] },
+        "曲奇餅乾": { flavors: ["經典奶油", "濃可可", "伯爵茶", "綜合"], stamps: ["(無需選擇)"], packs: ["慶典白", "星夜藍", "心願粉"] },
+        "Dreamy旋轉筒": { flavors: ["經典原味", "伯爵紅茶", "茉莉花茶"], stamps: ["請先選包裝"], packs: ["四季童話", "銀河探險"] }
+      };
+      var DREAMY_MAPPING = { "四季童話": "四季童話烙印", "銀河探險": "銀河探險烙印" };
+      var MAX_ITEMS = 5;
+
+      window.onload = function() {
+        addItem();
+        initializeLiff('2008790381-awGUgw07');
+      };
+
+      function initializeLiff(myLiffId) {
+        liff.init({ liffId: myLiffId })
+          .then(function() {
+            document.getElementById("liffStatus").style.display = "none";
+            if (liff.isLoggedIn()) {
+              liff.getProfile().then(function(profile) {
+                currentUserId = profile.userId;
+                currentLineName = profile.displayName;
+              });
+            } else {
+              console.log("Web Mode - 外部瀏覽器開啟");
+            }
+          })
+          .catch(function(err) {
+            console.error("LIFF Init Error:", err);
+            document.getElementById("liffStatus").innerText = "Web Mode";
+          });
+      }
+
+      function updateNotices() {
+        var dateInput = document.getElementById("cDate");
+        var timeInput = document.getElementById("cTime");
+        var noticeBox = document.getElementById("noticeBox");
+        var messages = [];
+
+        if (dateInput.value) {
+            var inputDate = new Date(dateInput.value);
+            var today = new Date();
+            inputDate.setHours(0,0,0,0);
+            today.setHours(0,0,0,0);
+
+            if (inputDate.getDay() === 0) {
+                alert("抱歉，週日物流無配送，請選擇週一至週六的日期。");
+                dateInput.value = "";
+                updateNotices();
+                return;
+            }
+            else if (inputDate < today) { messages.push("⚠ 貼心提醒：<br>您選擇了【過去的日期】唷！請您重新選擇。"); }
+            else if (inputDate.getTime() === today.getTime()) { messages.push("⚠ 貼心提醒：<br>最快出貨日為【明天】唷！請您重新選擇。"); }
+        }
+
+        if (timeInput.value === "13:00前") { messages.push("⚠ 貼心提醒：<br>若到貨時間是中午前，將為您安排【前兩天寄出禮盒】。"); }
+
+        if (messages.length > 0) {
+            noticeBox.innerHTML = messages.join("<br><br>");
+            noticeBox.style.display = "block";
+        } else {
+            noticeBox.style.display = "none";
+        }
+
+        checkPaymentOptions();
+      }
+
+      function toggleSplitHint() {
+        var checkbox = document.getElementById('splitShipCheck');
+        var hintBox = document.getElementById('splitHint');
+        hintBox.style.display = (checkbox && checkbox.checked) ? 'block' : 'none';
+      }
+
+      function calcTotals() {
+        var allPick = 0, allShip = 0;
+
+        document.querySelectorAll('.item-card').forEach(function(card) {
+            var pick = parseInt(card.querySelector('.spec-pick').value) || 0;
+            var ship = parseInt(card.querySelector('.spec-ship').value) || 0;
+            var subtotal = pick + ship;
+            card.querySelector('.card-subtotal').innerText = subtotal;
+            allPick += pick;
+            allShip += ship;
+        });
+
+        document.getElementById('totalAll').innerText = allPick + allShip;
+        document.getElementById('totalPick').innerText = allPick;
+        document.getElementById('totalShip').innerText = allShip;
+
+        var addrSection = document.getElementById('addressSection');
+        var cAddress = document.getElementById('cAddress');
+        var storeInfo = document.getElementById('storeInfoBox');
+
+        if (allShip > 0) {
+            addrSection.style.display = 'block';
+            cAddress.setAttribute('required', '');
+            storeInfo.style.display = 'none';
+        } else {
+            addrSection.style.display = 'none';
+            cAddress.removeAttribute('required');
+            storeInfo.style.display = (allPick > 0) ? 'block' : 'none';
+        }
+
+        var btn = document.getElementById('sBtn');
+        var hint = document.getElementById('btnHint');
+
+        if ((allPick + allShip) > 0) {
+            btn.disabled = false;
+            hint.innerText = "";
+        } else {
+            btn.disabled = true;
+            hint.innerText = "請至少填寫一個品項的數量";
+        }
+
+        checkPaymentOptions();
+        return { allPick: allPick, allShip: allShip };
+      }
+
+      function checkPaymentOptions() {
+        var allPickCount = 0;
+        document.querySelectorAll('.item-card').forEach(function(card) {
+            allPickCount += parseInt(card.querySelector('.spec-pick').value) || 0;
+        });
+
+        var dateInput = document.getElementById("cDate").value;
+        var isDateValidForStorePay = false;
+
+        if (dateInput) {
+            var inputDate = new Date(dateInput);
+            inputDate.setHours(0, 0, 0, 0);
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            var diffTime = inputDate.getTime() - today.getTime();
+            var diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+            if (diffDays >= 10) isDateValidForStorePay = true;
+        }
+
+        var storePaymentOpt = document.getElementById('storePaymentOption');
+        var paymentMethod = document.getElementById('paymentMethod');
+
+        if (allPickCount > 0 && isDateValidForStorePay) {
+            storePaymentOpt.hidden = false;
+            storePaymentOpt.disabled = false;
+        } else {
+            storePaymentOpt.hidden = true;
+            storePaymentOpt.disabled = true;
+            if (paymentMethod.value === "門市付款") paymentMethod.value = "匯款轉帳";
+        }
+      }
+
+      function addItem() {
+        var list = document.getElementById("itemList");
+        if (list.children.length >= MAX_ITEMS) return;
+        var index = list.children.length + 1;
+        var div = document.createElement("div");
+        div.className = "item-card";
+        div.innerHTML =
+          '<div class="card-header"><b>品項 #' + index + '</b>' + (index > 1 ? '<button type="button" class="btn-remove" onclick="removeItem(this)">×</button>' : '') + '</div>' +
+          '<select class="main-select" onchange="updateOptions(this)" required>' +
+            '<option value="" disabled selected>請選擇商品...</option>' +
+            Object.keys(PRODUCT_DATA).map(function(n) { return '<option value="' + n + '">' + n + '</option>'; }).join('') +
+          '</select>' +
+          '<div class="spec-grid">' +
+            '<div><span class="spec-label">口味</span><select class="spec-flavor" required disabled><option value="">請選商品</option></select></div>' +
+            '<div><span class="spec-label">包裝</span><select class="spec-pack" onchange="updateStamp(this)" required disabled><option value="">請選商品</option></select></div>' +
+            '<div><span class="spec-label">烙印</span><select class="spec-stamp" required disabled><option value="">請選商品</option></select></div>' +
+          '</div>' +
+          '<div class="split-row">' +
+            '<div class="split-group"><label>🏪 門市自取</label><input type="number" class="spec-pick" value="0" min="0" placeholder="0" oninput="calcTotals()"></div>' +
+            '<div class="split-group"><label>🚚 宅配寄送</label><input type="number" class="spec-ship" value="0" min="0" placeholder="0" oninput="calcTotals()"></div>' +
+          '</div>' +
+          '<div class="item-subtotal">本項合計: <span class="card-subtotal">0</span> 盒</div>';
+        list.appendChild(div);
+        updateUI();
+        checkItemLimits();
+        calcTotals();
+      }
+
+      function removeItem(btn) {
+        btn.closest('.item-card').remove();
+        updateUI();
+        checkItemLimits();
+        calcTotals();
+      }
+
+      function updateOptions(sel) {
+        var card = sel.closest('.item-card');
+        var pName = sel.value;
+        var data = PRODUCT_DATA[pName];
+        var f = card.querySelector('.spec-flavor');
+        var p = card.querySelector('.spec-pack');
+        var s = card.querySelector('.spec-stamp');
+        f.innerHTML = data.flavors.map(function(v) { return '<option value="' + v + '">' + v + '</option>'; }).join('');
+        p.innerHTML = data.packs.map(function(v) { return '<option value="' + v + '">' + v + '</option>'; }).join('');
+        f.disabled = false; p.disabled = false;
+        if (pName === "Dreamy旋轉筒") { s.innerHTML = '<option value="">請先選包裝</option>'; s.disabled = true; }
+        else { s.innerHTML = data.stamps.map(function(v) { return '<option value="' + v + '">' + v + '</option>'; }).join(''); s.disabled = false; }
+        checkItemLimits();
+      }
+
+      function updateStamp(sel) {
+        var card = sel.closest('.item-card');
+        var main = card.querySelector('.main-select').value;
+        var stamp = card.querySelector('.spec-stamp');
+        if (main === "Dreamy旋轉筒") {
+          var val = DREAMY_MAPPING[sel.value];
+          stamp.innerHTML = '<option value="' + val + '">' + val + '</option>';
+          stamp.disabled = false;
+        }
+      }
+
+      function checkItemLimits() {
+        var sels = document.querySelectorAll('.main-select');
+        var h = 0, d = 0;
+        sels.forEach(function(s) {
+            if(s.value === "蜂蜜蛋糕") h++;
+            if(s.value === "Dreamy旋轉筒") d++;
+        });
+        sels.forEach(function(s) {
+          Array.from(s.options).forEach(function(opt) {
+            if (opt.value === "蜂蜜蛋糕") opt.disabled = (h >= 1 && s.value !== opt.value);
+            if (opt.value === "Dreamy旋轉筒") opt.disabled = (d >= 1 && s.value !== opt.value);
+          });
+        });
+      }
+
+      function updateUI() {
+        var count = document.getElementById("itemList").children.length;
+        document.getElementById("remainCount").innerText = MAX_ITEMS - count;
+        document.getElementById("addBtn").disabled = count >= MAX_ITEMS;
+      }
+
+      function prepareAndSubmit() {
+        var name = document.getElementById("cName").value;
+        var phone = document.getElementById("cPhone").value;
+        var taxId = document.getElementById("cTaxId").value;
+        var address = document.getElementById("cAddress").value;
+        var date = document.getElementById("cDate").value;
+        var payment = document.getElementById("paymentMethod").value;
+
+        var splitCheck = document.getElementById('splitShipCheck');
+        var hasSplit = splitCheck && splitCheck.offsetParent !== null && splitCheck.checked;
+
+        var totals = calcTotals();
+
+        if(!name || !phone || !date) { alert("請檢查基本資料是否填寫完整！"); return; }
+        if(totals.allShip > 0 && !address) { alert("選擇宅配請填寫地址！"); return; }
+        if(phone.length !== 10) { alert("電話號碼格式錯誤！請填寫 10 碼數字"); return; }
+
+        var cards = document.querySelectorAll('.item-card');
+        if(cards.length === 0) { alert("請至少新增一個品項！"); return; }
+
+        var btn = document.getElementById("sBtn");
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loader"></span> 處理中...';
+
+        var pNames = [], pFlavors = [], pPacks = [], pStamps = [], pPickups = [], pShips = [];
+        var summaryHtmlItems = "";
+        var summaryText = "";
+
+        cards.forEach(function(c, i) {
+            var n = c.querySelector('.main-select').value;
+            var f = c.querySelector('.spec-flavor').value || "-";
+            var p = c.querySelector('.spec-pack').value || "-";
+            var s = c.querySelector('.spec-stamp').value || "-";
+            var pick = parseInt(c.querySelector('.spec-pick').value) || 0;
+            var ship = parseInt(c.querySelector('.spec-ship').value) || 0;
+
+            if(pick + ship === 0) return;
+
+            pNames.push(n); pFlavors.push(f); pPacks.push(p); pStamps.push(s);
+            pPickups.push(pick); pShips.push(ship);
+
+            var detailStr = '(自取:' + pick + ' / 寄送:' + ship + ')';
+
+            summaryText += '\n📦 品項' + (i+1) + '：' + n + '\n   規格：' + f + ' / ' + p + ' / ' + s + '\n   數量：' + (pick+ship) + ' 盒 ' + detailStr + '\n';
+
+            summaryHtmlItems +=
+              '<div class="summary-item">' +
+                '<strong>' + n + '</strong> x ' + (pick+ship) + ' 盒<br>' +
+                '<span style="font-size:12px; color:#888;">' + f + ' | ' + p + ' | ' + s + '</span><br>' +
+                '<span style="font-size:12px; color:#d4a373; font-weight:bold;">' + detailStr + '</span>' +
+              '</div>';
+        });
+
+        if(pNames.length === 0) {
+            alert("所有品項數量皆為 0，請填寫數量！");
+            btn.disabled = false; btn.innerHTML = "確認送出訂單";
+            return;
+        }
+
+        var note = document.getElementById("cNote").value;
+        if(hasSplit) note = "【有分批寄送需求】" + note;
+
+        var timeVal = document.getElementById("cTime").value;
+        if(timeVal === "13:00前") note = "【13:00前到貨/前兩天寄出】 " + note;
+
+        var orderData = {
+            cName: name, cPhone: phone, cTaxId: taxId,
+            cAddress: address, cDate: date, cTime: timeVal, cNote: note,
+            paymentMethod: payment,
+            pName: pNames, pFlavor: pFlavors, pPack: pPacks, pStamp: pStamps,
+            pPickup: pPickups, pShip: pShips,
+            deliveryOverview: (totals.allShip > 0 ? "部分/全數寄送" : "全數自取"),
+            userId: currentUserId,
+            lineName: currentLineName
+        };
+
+        var finalText = '你好！我已完成訂購登記：\n---------------------------\n 姓名：' + orderData.cName + '\n 電話：' + orderData.cPhone + '\n 統編：' + (orderData.cTaxId || "無") + '\n 配送：自取' + totals.allPick + '盒 / 寄送' + totals.allShip + '盒\n 地址：' + (totals.allShip > 0 ? orderData.cAddress : "門市自取") + '\n 日期：' + orderData.cDate + ' (' + orderData.cTime + ')\n 付款：' + orderData.paymentMethod + '\n 備註：' + (orderData.cNote || "無") + '\n---------------------------' + summaryText + '\n請小幫手協助確認，謝謝！';
+
+        document.getElementById("copyArea").value = finalText;
+
+        fetch(GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          redirect: 'follow',
+          body: JSON.stringify(orderData)
+        })
+        .then(function(response) { return response.text(); })
+        .then(function(text) {
+          var res;
+          try { res = JSON.parse(text); } catch(e) {
+            console.error("JSON parse error:", text);
+            throw new Error("伺服器回應格式錯誤");
+          }
+          if (res.status === "success") {
+            showSuccess(orderData, summaryHtmlItems, totals);
+            autoSendOrder(finalText);
+          } else {
+            alert(res.msg || "送出失敗，請稍後再試");
+            btn.disabled = false; btn.innerText = "確認送出訂單";
+          }
+        })
+        .catch(function(err) {
+          console.error("API Error:", err);
+          alert("發生錯誤：" + err.message + "\n請稍後再試");
+          btn.disabled = false; btn.innerText = "確認送出訂單";
+        });
+      }
+
+      function showSuccess(data, itemsHtml, totals) {
+        document.getElementById("formView").classList.add("hide");
+        document.getElementById("successView").classList.remove("hide");
+
+        var summaryHtml =
+          '<div class="summary-title">📋 訂購資料確認</div>' +
+          '<div class="summary-row"><span>姓名</span><span>' + data.cName + '</span></div>' +
+          '<div class="summary-row"><span>電話</span><span>' + data.cPhone + '</span></div>' +
+          '<div class="summary-row"><span>統編</span><span>' + (data.cTaxId || "無") + '</span></div>' +
+          '<div class="summary-row"><span>配送概況</span><span class="badge">自取' + totals.allPick + ' / 寄送' + totals.allShip + '</span></div>' +
+          '<div class="summary-row"><span>日期</span><span>' + data.cDate + ' (' + data.cTime + ')</span></div>' +
+          '<div class="summary-row"><span>地址</span><span>' + (totals.allShip > 0 ? data.cAddress : "門市自取") + '</span></div>' +
+          '<div style="margin: 15px 0 10px 0; border-top:1px dashed #ddd; padding-top:10px; font-weight:bold; color:#555;">訂購品項</div>' +
+          itemsHtml +
+          '<div style="margin-top:10px; font-size:12px; color:#999;">備註：' + (data.cNote || "無") + '</div>';
+
+        document.getElementById("summaryBox").innerHTML = summaryHtml;
+        window.scrollTo(0, 0);
+      }
+
+      // ===== 自動發送訂單到 LINE 聊天室 =====
+      function autoSendOrder(orderText) {
+        var copyStatusMsg = document.getElementById("copyStatusMsg");
+        var manualCopyBox = document.getElementById("manualCopyBox");
+        var goToLineArea = document.getElementById("goToLineArea");
+
+        if (typeof liff !== 'undefined' && liff.isInClient()) {
+          liff.sendMessages([{
+            type: 'text',
+            text: orderText
+          }])
+          .then(function() {
+            manualCopyBox.style.display = "none";
+            copyStatusMsg.innerHTML =
+              '<span style="color:#28a745; font-size:18px;">✅ 訂單明細已自動傳送至聊天室！</span><br>' +
+              '<span style="color:#888; font-size:14px;">無需手動複製，系統已為您完成</span>';
+            goToLineArea.style.display = "none";
+          })
+          .catch(function(err) {
+            console.error('LIFF sendMessages error:', err);
+            autoCopyOrder();
+          });
+        } else {
+          autoCopyOrder();
+        }
+      }
+
+      // ===== 自動複製到剪貼簿（fallback） =====
+      function autoCopyOrder() {
+        var area = document.getElementById("copyArea");
+        navigator.clipboard.writeText(area.value).then(function() {
+          document.getElementById("copyStatusMsg").innerHTML =
+            '<span style="color:#28a745;">✅ 訂單內容已自動複製！</span><br>' +
+            '<span style="color:#d63031; font-size:14px;">請點擊下方按鈕，前往 LINE 貼上回傳<br>⚠ 請勿以截圖的方式傳送⚠ </span>';
+        }).catch(function() {
+          document.getElementById("copyStatusMsg").innerHTML =
+            '<span style="color:#e67e22;">⚠ 無法自動複製，請手動複製</span>';
+          document.getElementById("manualCopyBox").style.display = "block";
+        });
+      }
+
+      function manualCopy() {
+        var area = document.getElementById("copyArea");
+        navigator.clipboard.writeText(area.value).then(function() {
+          document.getElementById("copyStatusMsg").innerHTML =
+            '<span style="color:#28a745;">✅ 訂單內容已複製！</span><br>' +
+            '<span style="color:#d63031; font-size:14px;">請點擊下方按鈕，前往 LINE 貼上回傳<br>⚠ 請勿以截圖的方式傳送⚠ </span>';
+          document.getElementById("manualCopyBox").style.display = "none";
+        }).catch(function() {
+          alert("⚠ 複製失敗，請長按訂單內容手動複製後，前往 LINE 貼上");
+        });
+      }
+    </script>
+  </body>
+</html>
