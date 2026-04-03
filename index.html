@@ -545,34 +545,51 @@
         window.scrollTo(0, 0);
       }
 
-      // ===== 自動發送訂單到 LINE 聊天室 =====
+      // ===== 自動發送訂單到 LINE（三層保險） =====
       function autoSendOrder(orderText, clipboardOk) {
         var copyStatusMsg = document.getElementById("copyStatusMsg");
         var manualCopyBox = document.getElementById("manualCopyBox");
         var goToLineArea = document.getElementById("goToLineArea");
 
-        if (typeof liff !== 'undefined' && liff.isInClient()) {
-          liff.sendMessages([{
-            type: 'text',
-            text: orderText
-          }])
-          .then(function() {
-            manualCopyBox.style.display = "none";
-            copyStatusMsg.innerHTML =
-              '<span style="color:#28a745; font-size:18px;">✅ 訂單明細已自動傳送至聊天室！</span><br>' +
-              '<span style="color:#888; font-size:14px;">無需手動複製，系統已為您完成</span>';
-            goToLineArea.style.display = "none";
-          })
-          .catch(function(err) {
-            console.error('LIFF sendMessages error:', err);
-            showCopyResult(clipboardOk);
-          });
-        } else {
-          showCopyResult(clipboardOk);
+        if (typeof liff === 'undefined') { showCopyResult(clipboardOk); return; }
+
+        function trySendMessages() {
+          if (!liff.isInClient()) { trySharePicker(); return; }
+          liff.sendMessages([{ type: 'text', text: orderText }])
+            .then(function() {
+              manualCopyBox.style.display = "none";
+              goToLineArea.style.display = "none";
+              copyStatusMsg.innerHTML =
+                '<span style="color:#28a745; font-size:18px;">✅ 訂單明細已自動傳送至聊天室！</span><br>' +
+                '<span style="color:#888; font-size:14px;">無需手動複製，系統已為您完成</span>';
+            })
+            .catch(function(err) {
+              console.error('sendMessages failed:', err);
+              trySharePicker();
+            });
         }
+
+        function trySharePicker() {
+          if (!liff.isApiAvailable('shareTargetPicker')) { showCopyResult(clipboardOk); return; }
+          liff.shareTargetPicker([{ type: 'text', text: orderText }])
+            .then(function(res) {
+              if (res) {
+                manualCopyBox.style.display = "none";
+                goToLineArea.style.display = "none";
+                copyStatusMsg.innerHTML =
+                  '<span style="color:#28a745; font-size:18px;">✅ 訂單已成功分享！</span><br>' +
+                  '<span style="color:#888; font-size:14px;">訂單已傳送至您選擇的聊天室</span>';
+              } else { showCopyResult(clipboardOk); }
+            })
+            .catch(function(err) {
+              console.error('shareTargetPicker failed:', err);
+              showCopyResult(clipboardOk);
+            });
+        }
+
+        trySendMessages();
       }
 
-      // ===== 顯示複製結果（使用 fetch 前預先複製的狀態） =====
       function showCopyResult(clipboardOk) {
         if (clipboardOk) {
           document.getElementById("copyStatusMsg").innerHTML =
