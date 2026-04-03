@@ -491,6 +491,14 @@
 
         document.getElementById("copyArea").value = finalText;
 
+        // ★ 在 fetch 之前先複製（此時仍在使用者點擊的手勢範圍內）
+        var clipboardOk = false;
+        navigator.clipboard.writeText(finalText).then(function() {
+          clipboardOk = true;
+        }).catch(function() {
+          clipboardOk = false;
+        });
+
         fetch(GAS_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -506,7 +514,7 @@
           }
           if (res.status === "success") {
             showSuccess(orderData, summaryHtmlItems, totals);
-            autoSendOrder(finalText);
+            autoSendOrder(finalText, clipboardOk);
           } else {
             alert(res.msg || "送出失敗，請稍後再試");
             btn.disabled = false; btn.innerText = "確認送出訂單";
@@ -540,7 +548,7 @@
       }
 
       // ===== 自動發送訂單到 LINE 聊天室 =====
-      function autoSendOrder(orderText) {
+      function autoSendOrder(orderText, clipboardOk) {
         var copyStatusMsg = document.getElementById("copyStatusMsg");
         var manualCopyBox = document.getElementById("manualCopyBox");
         var goToLineArea = document.getElementById("goToLineArea");
@@ -559,25 +567,24 @@
           })
           .catch(function(err) {
             console.error('LIFF sendMessages error:', err);
-            autoCopyOrder();
+            showCopyResult(clipboardOk);
           });
         } else {
-          autoCopyOrder();
+          showCopyResult(clipboardOk);
         }
       }
 
-      // ===== 自動複製到剪貼簿（fallback） =====
-      function autoCopyOrder() {
-        var area = document.getElementById("copyArea");
-        navigator.clipboard.writeText(area.value).then(function() {
+      // ===== 顯示複製結果（使用 fetch 前預先複製的狀態） =====
+      function showCopyResult(clipboardOk) {
+        if (clipboardOk) {
           document.getElementById("copyStatusMsg").innerHTML =
             '<span style="color:#28a745;">✅ 訂單內容已自動複製！</span><br>' +
             '<span style="color:#d63031; font-size:14px;">請點擊下方按鈕，前往 LINE 貼上回傳<br>⚠ 請勿以截圖的方式傳送⚠ </span>';
-        }).catch(function() {
+        } else {
           document.getElementById("copyStatusMsg").innerHTML =
-            '<span style="color:#e67e22;">⚠ 無法自動複製，請手動複製</span>';
+            '<span style="color:#e67e22;">⚠️請點下方按鈕複製訂單內容</span>';
           document.getElementById("manualCopyBox").style.display = "block";
-        });
+        }
       }
 
       function manualCopy() {
