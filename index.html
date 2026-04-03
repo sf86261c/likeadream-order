@@ -492,12 +492,10 @@
         document.getElementById("copyArea").value = finalText;
 
         // ★ 在 fetch 之前先複製（此時仍在使用者點擊的手勢範圍內）
-        var clipboardOk = false;
-        navigator.clipboard.writeText(finalText).then(function() {
-          clipboardOk = true;
-        }).catch(function() {
-          clipboardOk = false;
-        });
+        var clipboardOk = fallbackCopy(finalText);
+        if (!clipboardOk) {
+          try { navigator.clipboard.writeText(finalText).then(function() { clipboardOk = true; }).catch(function() {}); } catch(e) {}
+        }
 
         fetch(GAS_API_URL, {
           method: 'POST',
@@ -587,16 +585,44 @@
         }
       }
 
+      // ===== iOS LINE 瀏覽器相容的複製方法 =====
+      function fallbackCopy(text) {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          ta.style.top = '0';
+          ta.setAttribute('readonly', '');
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.setSelectionRange(0, ta.value.length);
+          var ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+          return ok;
+        } catch(e) {
+          return false;
+        }
+      }
+
       function manualCopy() {
-        var area = document.getElementById("copyArea");
-        navigator.clipboard.writeText(area.value).then(function() {
-          document.getElementById("copyStatusMsg").innerHTML =
-            '<span style="color:#28a745;">✅ 訂單內容已複製！</span><br>' +
-            '<span style="color:#d63031; font-size:14px;">請點擊下方按鈕，前往 LINE 貼上回傳<br>⚠ 請勿以截圖的方式傳送⚠ </span>';
-          document.getElementById("manualCopyBox").style.display = "none";
+        var text = document.getElementById("copyArea").value;
+        navigator.clipboard.writeText(text).then(function() {
+          onCopySuccess();
         }).catch(function() {
-          alert("⚠ 複製失敗，請長按訂單內容手動複製後，前往 LINE 貼上");
+          if (fallbackCopy(text)) {
+            onCopySuccess();
+          } else {
+            alert("⚠ 複製失敗，請長按訂單內容手動複製後，前往 LINE 貼上");
+          }
         });
+      }
+
+      function onCopySuccess() {
+        document.getElementById("copyStatusMsg").innerHTML =
+          '<span style="color:#28a745;">✅ 訂單內容已複製！</span><br>' +
+          '<span style="color:#d63031; font-size:14px;">請點擊下方按鈕，前往 LINE 貼上回傳<br>⚠ 請勿以截圖的方式傳送⚠ </span>';
+        document.getElementById("manualCopyBox").style.display = "none";
       }
     </script>
   </body>
