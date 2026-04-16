@@ -491,11 +491,8 @@
 
         document.getElementById("copyArea").value = finalText;
 
-        // ★ 在 fetch 之前先複製（此時仍在使用者點擊的手勢範圍內）
+        // ★ 在 fetch 之前先複製（作為 sendMessages 失敗時的後備）
         var clipboardOk = fallbackCopy(finalText);
-        if (!clipboardOk) {
-          try { navigator.clipboard.writeText(finalText).then(function() { clipboardOk = true; }).catch(function() {}); } catch(e) {}
-        }
 
         fetch(GAS_API_URL, {
           method: 'POST',
@@ -545,49 +542,75 @@
         window.scrollTo(0, 0);
       }
 
-      // ===== 自動發送訂單到 LINE（三層保險） =====
+      // ===== 將長文字拆分成多條 LINE 訊息（每條上限 5000 字元，最多 5 條） =====
+      function buildLineMessages(text) {
+        if (text.length <= 5000) return [{ type: 'text', text: text }];
+        var messages = [];
+        var lines = text.split('\n');
+        var chunk = '';
+        for (var i = 0; i < lines.length; i++) {
+          var next = chunk ? chunk + '\n' + lines[i] : lines[i];
+          if (next.length > 5000 && chunk) {
+            messages.push({ type: 'text', text: chunk });
+            chunk = lines[i];
+          } else {
+            chunk = next;
+          }
+        }
+        if (chunk) messages.push({ type: 'text', text: chunk });
+        return messages.slice(0, 5);
+      }
+
+      // ===== 回報 LINE 傳送錯誤到後端（供店家排查問題） =====
+      function reportLineError(method, err) {
+        try {
+          fetch(GAS_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            redirect: 'follow',
+            body: JSON.stringify({
+              type: 'lineError',
+              method: method,
+              error: String(err && err.message || err),
+              userId: currentUserId,
+              lineName: currentLineName,
+              isInClient: typeof liff !== 'undefined' && liff.isInClient(),
+              timestamp: new Date().toISOString()
+            })
+          });
+        } catch(e) {}
+      }
+
+      // ===== 自動發送訂單到 LINE 聊天室（不再跳出選擇對象） =====
       function autoSendOrder(orderText, clipboardOk) {
         var copyStatusMsg = document.getElementById("copyStatusMsg");
         var manualCopyBox = document.getElementById("manualCopyBox");
         var goToLineArea = document.getElementById("goToLineArea");
 
-        if (typeof liff === 'undefined') { showCopyResult(clipboardOk); return; }
-
-        function trySendMessages() {
-          if (!liff.isInClient()) { trySharePicker(); return; }
-          liff.sendMessages([{ type: 'text', text: orderText }])
-            .then(function() {
-              manualCopyBox.style.display = "none";
-              goToLineArea.style.display = "none";
-              copyStatusMsg.innerHTML =
-                '<span style="color:#28a745; font-size:18px;">✅ 訂單明細已自動傳送至聊天室！</span><br>' +
-                '<span style="color:#888; font-size:14px;">無需手動複製，系統已為您完成</span>';
-            })
-            .catch(function(err) {
-              console.error('sendMessages failed:', err);
-              trySharePicker();
-            });
+        // 非 LINE 內建瀏覽器 → 直接走剪貼簿流程
+        if (typeof liff === 'undefined' || !liff.isInClient()) {
+          showCopyResult(clipboardOk);
+          return;
         }
 
-        function trySharePicker() {
-          if (!liff.isApiAvailable('shareTargetPicker')) { showCopyResult(clipboardOk); return; }
-          liff.shareTargetPicker([{ type: 'text', text: orderText }])
-            .then(function(res) {
-              if (res) {
-                manualCopyBox.style.display = "none";
-                goToLineArea.style.display = "none";
-                copyStatusMsg.innerHTML =
-                  '<span style="color:#28a745; font-size:18px;">✅ 訂單已成功分享！</span><br>' +
-                  '<span style="color:#888; font-size:14px;">訂單已傳送至您選擇的聊天室</span>';
-              } else { showCopyResult(clipboardOk); }
-            })
-            .catch(function(err) {
-              console.error('shareTargetPicker failed:', err);
-              showCopyResult(clipboardOk);
-            });
-        }
-
-        trySendMessages();
+        // LINE 內建瀏覽器 → 直接傳回原聊天室（自動拆分長訊息）
+        var messages = buildLineMessages(orderText);
+        liff.sendMessages(messages)
+          .then(function() {
+            manualCopyBox.style.display = "none";
+            goToLineArea.style.display = "none";
+            copyStatusMsg.innerHTML =
+              '<span style="color:#28a745; font-size:18px;">✅ 訂單明細已自動傳送至聊天室！</span><br>' +
+              '<span style="color:#888; font-size:14px;">2 秒後自動返回聊天室...</span>';
+            setTimeout(function() {
+              try { liff.closeWindow(); } catch(e) {}
+            }, 2000);
+          })
+          .catch(function(err) {
+            console.error('sendMessages failed:', err);
+            reportLineError('sendMessages', err);
+            showCopyResult(clipboardOk);
+          });
       }
 
       function showCopyResult(clipboardOk) {
