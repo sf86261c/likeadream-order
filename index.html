@@ -487,7 +487,7 @@
             lineName: currentLineName
         };
 
-        var finalText = '你好！我已完成訂購登記：\n---------------------------\n 姓名：' + orderData.cName + '\n 電話：' + orderData.cPhone + '\n 統編：' + (orderData.cTaxId || "無") + '\n 配送：自取' + totals.allPick + '盒 / 寄送' + totals.allShip + '盒\n 地址：' + (totals.allShip > 0 ? orderData.cAddress : "門市自取") + '\n 日期：' + orderData.cDate + ' (' + orderData.cTime + ')\n 付款：' + orderData.paymentMethod + '\n 備註：' + (orderData.cNote || "無") + '\n---------------------------' + summaryText + '\n請小幫手協助確認，謝謝！';
+        var finalText = '你好！我已完成訂購登記：\n---------------------------\n 姓名：' + orderData.cName + '\n 電話：' + orderData.cPhone + '\n 統編：' + (orderData.cTaxId || "無") + '\n 配送：自取' + totals.allPick + '盒 / 寄送' + totals.allShip + '盒\n 地址：' + (totals.allShip > 0 ? orderData.cAddress : "門市自取") + '\n 到貨日期：' + orderData.cDate + ' (' + orderData.cTime + ')\n 付款：' + orderData.paymentMethod + '\n 備註：' + (orderData.cNote || "無") + '\n---------------------------' + summaryText + '\n請小幫手協助確認，謝謝！';
 
         document.getElementById("copyArea").value = finalText;
 
