@@ -492,7 +492,7 @@
             else if (inputDate.getTime() === today.getTime()) { messages.push("⚠ 貼心提醒：<br>最快出貨日為【明天】唷！請您重新選擇。"); }
         }
 
-        if (timeInput.value === "13:00前") { messages.push("⚠ 貼心提醒：<br>若到貨時間是中午前，將為您安排【前兩天寄出禮盒】。"); }
+        messages.push("⚠ 貼心提醒：<br>為確保貨運即時送達，將為您安排【兩天前寄出禮盒】。");
 
         if (messages.length > 0) {
             noticeBox.innerHTML = messages.join("<br><br>");
@@ -732,7 +732,7 @@
         if(hasSplit) note = "【有分批寄送需求】" + note;
 
         var timeVal = document.getElementById("cTime").value;
-        if(timeVal === "13:00前") note = "【13:00前到貨/前兩天寄出】 " + note;
+        note = "【兩天前寄出禮盒】 " + note;
 
         var orderData = {
             cName: name, cPhone: phone, cTaxId: taxId,
