@@ -7,10 +7,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <style>
       :root {
         --primary: #d4a373;
         --primary-strong: #c68f5e;
+        --primary-dark: #b07c4a;
         --primary-glow: rgba(212, 163, 115, 0.35);
         --text: #3d2914;
         --text-soft: #6b4f4f;
@@ -228,6 +230,9 @@
         transform: translateY(-2px);
         box-shadow: 0 12px 30px rgba(212, 163, 115, 0.5), inset 0 1px 0 rgba(255,255,255,0.55);
       }
+      /* 3D 按壓（移植自 likeadream-tasting：border-bottom 下沉） */
+      .btn-submit:not(:disabled) { border-bottom: 5px solid var(--primary-dark); transform-origin: bottom; }
+      .btn-submit:active:not(:disabled) { transform: translateY(2px) scaleY(.96); border-bottom-width: 2px; box-shadow: 0 3px 8px rgba(212, 163, 115, 0.3); }
       .btn-submit:disabled {
         background: rgba(200, 200, 200, 0.4);
         color: #999; cursor: not-allowed;
@@ -310,6 +315,47 @@
 
       @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.04); opacity: 0.88; } }
       .hide { display: none !important; }
+
+      /* ===== 圓潤可愛動效（移植自 likeadream-tasting 定稿設計）===== */
+      /* 選中回饋：果凍彈跳 + 勾勾 pop（此頁無 .plan-item 選項卡，套用於分批寄送勾選框） */
+      @keyframes jellyBounce { 0% { transform: scale(1); } 30% { transform: scale(1.03, .96); } 55% { transform: scale(.98, 1.02); } 75% { transform: scale(1.01, .99); } 100% { transform: scale(1); } }
+      @keyframes popIn { 0% { transform: scale(.4); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
+      .split-checkbox-wrapper:has(input:checked) { border-color: var(--primary); background: rgba(255, 251, 245, 0.75); animation: jellyBounce .5s cubic-bezier(.34,1.56,.64,1); }
+      .split-checkbox-wrapper input[type="checkbox"]:checked { animation: popIn .35s cubic-bezier(.34,1.56,.64,1); }
+      /* 總量變動 bump（對應範本 totalDisplay.bump） */
+      .footer-stat.bump { animation: popIn .4s cubic-bezier(.34,1.56,.64,1); }
+
+      /* 送出中的轉圈（原檔 JS 引用 .loader 但 CSS 未定義，補上） */
+      .loader { display: inline-block; width: 16px; height: 16px; border: 3px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; vertical-align: -3px; animation: spin .7s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* 進場動畫（模糊+上浮+微彈，逐段錯開） */
+      @keyframes blurFadeUp {
+        from { opacity: 0; transform: translateY(16px) scale(.98); filter: blur(6px); }
+        to   { opacity: 1; transform: translateY(0) scale(1);   filter: blur(0); }
+      }
+      .enter { animation: blurFadeUp .6s cubic-bezier(.22,.9,.35,1.15) both; animation-delay: calc(var(--i, 0) * 90ms); }
+      @keyframes cakeWiggle { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-12deg) scale(1.15); } 45% { transform: rotate(10deg) scale(1.1); } 70% { transform: rotate(-5deg); } }
+      .cake-emoji { display: inline-block; animation: cakeWiggle 1s ease-in-out .6s both; }
+
+      /* 條件出現的區塊：軟著陸 */
+      @keyframes softDrop { from { opacity: 0; transform: translateY(-8px) scale(.97); } to { opacity: 1; transform: none; } }
+      #noticeBox, #storeInfoBox, #splitHint, #addressSection { animation: softDrop .4s cubic-bezier(.34,1.56,.64,1); }
+
+      /* ===== 畫面切換轉場：表單淡出上飄 → 成功畫面果凍彈入 ===== */
+      @keyframes viewOut { to { opacity: 0; transform: translateY(-20px) scale(.97); filter: blur(4px); } }
+      .view-out { animation: viewOut .35s ease-in both; pointer-events: none; }
+      @keyframes viewIn { from { opacity: 0; transform: translateY(30px) scale(.94); } 70% { transform: translateY(-4px) scale(1.01); } to { opacity: 1; transform: none; } }
+      #successView.show { animation: viewIn .55s cubic-bezier(.34,1.56,.64,1) both; }
+      @keyframes iconPop { 0% { transform: scale(0) rotate(-30deg); } 55% { transform: scale(1.25) rotate(8deg); } 75% { transform: scale(.92) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }
+      #successView.show .success-icon { animation: iconPop .7s cubic-bezier(.34,1.56,.64,1) .15s both; }
+
+      /* 粒子（送出鈕爆發） */
+      .burst-dot { position: fixed; width: 8px; height: 8px; border-radius: 50%; pointer-events: none; z-index: 9999; }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation: none !important; transition: none !important; }
+      }
     </style>
   </head>
   <body>
@@ -317,27 +363,35 @@
     <div class="container" id="formView">
       <div id="liffStatus" style="font-size:12px; color:#ccc; text-align:center; margin-bottom:5px;">Loading...</div>
 
-      <h2>🍰 LikeaDream訂購單</h2>
-      <p class="subtitle">請填寫基本資料與選購品項</p>
+      <h2 class="enter" style="--i:0;"><span class="cake-emoji">🍰</span> LikeaDream訂購單</h2>
+      <p class="subtitle enter" style="--i:1;">請填寫基本資料與選購品項</p>
 
       <form id="orderForm" onsubmit="event.preventDefault(); prepareAndSubmit()">
+        <div class="enter" style="--i:2;">
         <label class="required">訂購人姓名</label>
         <input type="text" id="cName" placeholder="請輸入您的姓名" required>
+        </div>
 
+        <div class="enter" style="--i:3;">
         <label class="required">聯絡電話 (10碼)</label>
         <input type="tel" id="cPhone" placeholder="範例：0912345678" maxlength="10" pattern="\d{10}" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '');" required>
+        </div>
 
+        <div class="enter" style="--i:4;">
         <label>載具/統一編號 (選填)</label>
         <input type="text" id="cTaxId" placeholder="若需載具/統編請填寫">
+        </div>
 
+        <div class="enter" style="--i:5;">
         <hr style="border:0; border-top:1px dashed #ddd; margin: 20px 0;">
         <label style="font-size:1.1rem; color:#d4a373;">選購品項</label>
         <div style="font-size:12px; color:#999; margin-bottom:10px;">請分別填寫每個品項的「自取」與「寄送」數量</div>
 
         <div id="itemList"></div>
         <button type="button" class="btn btn-add" id="addBtn" onclick="addItem()">＋ 新增品項 (還可加 <span id="remainCount">4</span> 項)</button>
+        </div>
 
-        <div class="sticky-footer">
+        <div class="sticky-footer enter" style="--i:6;">
           <div class="footer-stat">總訂購量：<span id="totalAll">0</span> 盒</div>
           <div class="footer-detail">
             ( 🏪 門市自取：<span id="totalPick">0</span> / 🚚 宅配寄送：<span id="totalShip">0</span> )
@@ -364,7 +418,7 @@
           取貨時間：11:00~17:45 (免運費)
         </div>
 
-        <div class="row">
+        <div class="row enter" style="--i:7;">
           <div class="col-6">
             <label class="required" id="dateLabel">預計收件/取貨日</label>
             <input type="date" id="cDate" required onchange="updateNotices()">
@@ -386,10 +440,12 @@
 
         <div id="noticeBox" style="display:none; margin-top:10px; padding:12px; background:#fff0f0; border-left:5px solid #d63031; color:#d63031; font-size:14px; font-weight:bold;"></div>
 
+        <div class="enter" style="--i:8;">
         <label>備註 (選填)</label>
         <input type="text" id="cNote" placeholder="例如：管理室代收...">
+        </div>
 
-        <div class="payment-box" style="background:#fff8ee; border:2px solid #e4dccb; border-radius:10px; padding:15px; margin-top:25px;">
+        <div class="payment-box enter" style="--i:9; background:#fff8ee; border:2px solid #e4dccb; border-radius:10px; padding:15px; margin-top:25px;">
           <label style="margin-top:0;">付款方式</label>
           <select id="paymentMethod">
             <option value="匯款轉帳" selected>匯款轉帳</option>
@@ -397,19 +453,21 @@
           </select>
         </div>
 
+        <div class="enter" style="--i:10;">
         <button type="submit" class="btn btn-submit" id="sBtn" disabled>確認送出訂單</button>
         <div id="btnHint" style="text-align:center; color:#d63031; font-size:12px; margin-top:5px;">請至少選擇一盒商品</div>
+        </div>
       </form>
     </div>
 
     <div class="container hide" id="successView">
       <div class="success-card">
         <i class="bi bi-check-circle-fill success-icon"></i>
-        <div class="success-title">資料儲存成功！</div>
+        <div class="success-title enter" style="--i:1;">資料儲存成功！</div>
 
         <div style="margin-bottom: 25px;">
           <textarea id="copyArea" readonly style="position:absolute; left:-9999px;"></textarea>
-          <div id="copyStatusMsg" style="font-weight:bold; font-size:16px; margin-bottom:15px; line-height: 1.5;"></div>
+          <div id="copyStatusMsg" class="enter" style="--i:2; font-weight:bold; font-size:16px; margin-bottom:15px; line-height: 1.5;"></div>
           <div id="manualCopyBox" style="display:none; margin-bottom:15px;">
             <div style="color:#d63031; font-weight:bold; font-size:16px; margin-bottom:10px; line-height: 1.5;">
               ⚠ 請點下方按鈕複製訂單內容後，再前往 LINE 回傳<br>請勿以截圖的方式傳送
@@ -418,15 +476,15 @@
               📋 複製訂單內容
             </button>
           </div>
-          <a id="goToLineArea" href="https://lin.ee/oOteG0d" target="_blank" style="text-decoration:none;">
+          <a id="goToLineArea" href="https://lin.ee/oOteG0d" target="_blank" class="enter" style="--i:3; text-decoration:none; display:block;">
             <button class="btn btn-submit" type="button" style="background:#06c755;">
               🚀 前往 LINE 回傳訂單
             </button>
           </a>
         </div>
-        <div class="order-summary" id="summaryBox"></div>
+        <div class="order-summary enter" id="summaryBox" style="--i:4;"></div>
 
-        <div style="margin-top: 10px;">
+        <div class="enter" style="--i:5; margin-top: 10px;">
            <button class="btn btn-outline" onclick="window.location.reload()">填寫下一張</button>
         </div>
       </div>
@@ -522,9 +580,19 @@
             allShip += ship;
         });
 
-        document.getElementById('totalAll').innerText = allPick + allShip;
+        var totalAllEl = document.getElementById('totalAll');
+        var prevTotalText = totalAllEl.innerText;
+        totalAllEl.innerText = allPick + allShip;
         document.getElementById('totalPick').innerText = allPick;
         document.getElementById('totalShip').innerText = allShip;
+        if (totalAllEl.innerText !== prevTotalText) {
+            var statEl = totalAllEl.closest('.footer-stat');
+            if (statEl) {
+                statEl.classList.remove('bump');
+                void statEl.offsetWidth; // 重觸發動畫
+                statEl.classList.add('bump');
+            }
+        }
 
         var addrSection = document.getElementById('addressSection');
         var cAddress = document.getElementById('cAddress');
@@ -669,6 +737,51 @@
         document.getElementById("addBtn").disabled = count >= MAX_ITEMS;
       }
 
+      // ===== 粒子爆發（改編自 21st.dev Particle Button，移植自 likeadream-tasting）=====
+      function burstParticles(btn) {
+        var rect = btn.getBoundingClientRect();
+        var cx = rect.left + rect.width / 2;
+        var cy = rect.top + rect.height / 2;
+        var colors = ['#f8b4c4', '#d4a373', '#ffd97d', '#a8e6cf', '#fff'];
+        for (var i = 0; i < 10; i++) {
+          var el = document.createElement('div');
+          el.className = 'burst-dot';
+          el.style.left = cx + 'px';
+          el.style.top = cy + 'px';
+          el.style.background = colors[i % colors.length];
+          document.body.appendChild(el);
+          var dx = (i % 2 ? 1 : -1) * (Math.random() * 60 + 25);
+          var dy = -Math.random() * 60 - 25;
+          if (el.animate) {
+            el.animate([
+              { transform: 'translate(0,0) scale(0)', opacity: 1 },
+              { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(1.1)', opacity: 1, offset: 0.5 },
+              { transform: 'translate(' + (dx * 1.5) + 'px,' + (dy * 1.6) + 'px) scale(0)', opacity: 0 }
+            ], { duration: 650, delay: i * 35, easing: 'ease-out' }).onfinish = (function(node) {
+              return function() { node.remove(); };
+            })(el);
+          } else {
+            el.remove();
+          }
+        }
+      }
+
+      // ===== 彩帶慶祝（改編自 21st.dev magicui Confetti，奶油粉彩配色）=====
+      function fireConfetti() {
+        if (typeof confetti === 'undefined') return;
+        var colors = ['#f8b4c4', '#d4a373', '#ffd97d', '#a8e6cf', '#fff1e6'];
+        confetti({ particleCount: 70, spread: 80, origin: { y: 0.35 }, colors: colors, scalar: 0.95, shapes: ['circle'], ticks: 120 });
+        setTimeout(function() {
+          confetti({ particleCount: 40, spread: 110, origin: { y: 0.3 }, colors: colors, scalar: 0.7, shapes: ['circle'], ticks: 100 });
+        }, 180);
+        try {
+          var cake = confetti.shapeFromText({ text: '🍰', scalar: 2 });
+          setTimeout(function() {
+            confetti({ particleCount: 8, spread: 70, origin: { y: 0.35 }, shapes: [cake], scalar: 2, ticks: 90, gravity: 0.8 });
+          }, 120);
+        } catch (e) { /* 舊瀏覽器不支援 emoji 形狀就略過 */ }
+      }
+
       function prepareAndSubmit() {
         var name = document.getElementById("cName").value;
         var phone = document.getElementById("cPhone").value;
@@ -692,6 +805,7 @@
         var btn = document.getElementById("sBtn");
         btn.disabled = true;
         btn.innerHTML = '<span class="loader"></span> 處理中...';
+        burstParticles(btn);
 
         var pNames = [], pFlavors = [], pPacks = [], pStamps = [], pPickups = [], pShips = [];
         var summaryHtmlItems = "";
@@ -780,24 +894,35 @@
         });
       }
 
+      // ===== 顯示成功畫面（表單淡出 → 成功畫面果凍彈入 + 彩帶）=====
       function showSuccess(data, itemsHtml, totals) {
-        document.getElementById("formView").classList.add("hide");
-        document.getElementById("successView").classList.remove("hide");
+        var formView = document.getElementById("formView");
+        var successView = document.getElementById("successView");
 
-        var summaryHtml =
-          '<div class="summary-title">📋 訂購資料確認</div>' +
-          '<div class="summary-row"><span>姓名</span><span>' + data.cName + '</span></div>' +
-          '<div class="summary-row"><span>電話</span><span>' + data.cPhone + '</span></div>' +
-          '<div class="summary-row"><span>統編</span><span>' + (data.cTaxId || "無") + '</span></div>' +
-          '<div class="summary-row"><span>配送概況</span><span class="badge">自取' + totals.allPick + ' / 寄送' + totals.allShip + '</span></div>' +
-          '<div class="summary-row"><span>日期</span><span>' + data.cDate + ' (' + data.cTime + ')</span></div>' +
-          '<div class="summary-row"><span>地址</span><span>' + (totals.allShip > 0 ? data.cAddress : "門市自取") + '</span></div>' +
-          '<div style="margin: 15px 0 10px 0; border-top:1px dashed #ddd; padding-top:10px; font-weight:bold; color:#555;">訂購品項</div>' +
-          itemsHtml +
-          '<div style="margin-top:10px; font-size:12px; color:#999;">備註：' + (data.cNote || "無") + '</div>';
+        formView.classList.add("view-out");
 
-        document.getElementById("summaryBox").innerHTML = summaryHtml;
-        window.scrollTo(0, 0);
+        setTimeout(function() {
+          formView.classList.add("hide");
+
+          var summaryHtml =
+            '<div class="summary-title">📋 訂購資料確認</div>' +
+            '<div class="summary-row"><span>姓名</span><span>' + data.cName + '</span></div>' +
+            '<div class="summary-row"><span>電話</span><span>' + data.cPhone + '</span></div>' +
+            '<div class="summary-row"><span>統編</span><span>' + (data.cTaxId || "無") + '</span></div>' +
+            '<div class="summary-row"><span>配送概況</span><span class="badge">自取' + totals.allPick + ' / 寄送' + totals.allShip + '</span></div>' +
+            '<div class="summary-row"><span>日期</span><span>' + data.cDate + ' (' + data.cTime + ')</span></div>' +
+            '<div class="summary-row"><span>地址</span><span>' + (totals.allShip > 0 ? data.cAddress : "門市自取") + '</span></div>' +
+            '<div style="margin: 15px 0 10px 0; border-top:1px dashed #ddd; padding-top:10px; font-weight:bold; color:#555;">訂購品項</div>' +
+            itemsHtml +
+            '<div style="margin-top:10px; font-size:12px; color:#999;">備註：' + (data.cNote || "無") + '</div>';
+
+          document.getElementById("summaryBox").innerHTML = summaryHtml;
+
+          successView.classList.remove("hide");
+          successView.classList.add("show");
+          window.scrollTo(0, 0);
+          setTimeout(fireConfetti, 300);
+        }, 360);
       }
 
       // ===== 將長文字拆分成多條 LINE 訊息（每條上限 5000 字元，最多 5 條） =====
