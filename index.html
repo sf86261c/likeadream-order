@@ -492,6 +492,7 @@
 
     <script>
       var GAS_API_URL = "https://script.google.com/macros/s/AKfycbwcfq-WhYc4cYYpU0OPfqXZiGYFN_Bqy7V-Hv9TQAfY220oyQoQfGMmxhHcO65C-9ocUA/exec";
+      var FORM_RELAY_API = "https://likeadreamcastella.zeabur.app/api/form-relay";
 
       var currentUserId = "";
       var currentLineName = "";
@@ -519,7 +520,7 @@
                 currentLineName = profile.displayName;
               });
             } else {
-              console.log("Web Mode - 外部瀏覽器開啟");
+              liff.login();
             }
           })
           .catch(function(err) {
@@ -964,15 +965,47 @@
         } catch(e) {}
       }
 
-      // ===== 自動發送訂單到 LINE 聊天室（不再跳出選擇對象） =====
+      // ===== 伺服器回執：LIFF token 換 OA 推播（sendMessages 打不到或非 LINE 內建瀏覽器時的退路） =====
+      function tryServerRelay(texts) {
+        var token = null;
+        try {
+          token = (typeof liff !== 'undefined' && liff.getAccessToken) ? liff.getAccessToken() : null;
+        } catch (e) {
+          token = null;
+        }
+        if (!token) return Promise.resolve(false);
+        return fetch(FORM_RELAY_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ accessToken: token, texts: texts })
+        })
+          .then(function(response) { return response.ok; })
+          .catch(function() { return false; });
+      }
+
+      // ===== 自動發送訂單到 LINE 聊天室（sendMessages 優先，退伺服器回執，再退剪貼簿） =====
       function autoSendOrder(orderText, clipboardOk) {
         var copyStatusMsg = document.getElementById("copyStatusMsg");
         var manualCopyBox = document.getElementById("manualCopyBox");
         var goToLineArea = document.getElementById("goToLineArea");
 
-        // 非 LINE 內建瀏覽器 → 直接走剪貼簿流程
+        // 退路：伺服器回執成功 → 顯示結果；失敗 → 剪貼簿保底
+        function relayThenFallback() {
+          tryServerRelay(buildLineMessages(orderText).map(function(m) { return m.text; })).then(function(ok) {
+            if (ok) {
+              manualCopyBox.style.display = "none";
+              goToLineArea.style.display = "none";
+              copyStatusMsg.innerHTML =
+                '<span style="color:#28a745; font-size:18px;">✅ 訂單明細已傳送至官方 LINE 對話！</span>';
+            } else {
+              showCopyResult(clipboardOk);
+            }
+          });
+        }
+
+        // 非 LINE 內建瀏覽器 → 先試伺服器回執，失敗才走剪貼簿
         if (typeof liff === 'undefined' || !liff.isInClient()) {
-          showCopyResult(clipboardOk);
+          relayThenFallback();
           return;
         }
 
@@ -992,7 +1025,7 @@
           .catch(function(err) {
             console.error('sendMessages failed:', err);
             reportLineError('sendMessages', err);
-            showCopyResult(clipboardOk);
+            relayThenFallback();
           });
       }
 
