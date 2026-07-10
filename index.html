@@ -493,6 +493,30 @@
     <script>
       var GAS_API_URL = "https://script.google.com/macros/s/AKfycbwcfq-WhYc4cYYpU0OPfqXZiGYFN_Bqy7V-Hv9TQAfY220oyQoQfGMmxhHcO65C-9ocUA/exec";
       var FORM_RELAY_API = "https://likeadreamcastella.zeabur.app/api/form-relay";
+      var BLOCKED_DATES_API = "https://likeadreamcastella.zeabur.app/api/blocked-dates";
+      var FORM_ID = "order";
+      var blockedDates = [];
+
+      function loadBlockedDates() {
+        fetch(BLOCKED_DATES_API)
+          .then(function(res) { return res.ok ? res.json() : null; })
+          .then(function(data) {
+            var entries = (data && data.entries) || [];
+            blockedDates = entries.filter(function(e) {
+              return e && e.forms && e.forms.indexOf(FORM_ID) !== -1 && typeof e.start === 'string' && typeof e.end === 'string';
+            });
+            if (document.getElementById("cDate").value) updateNotices();
+          })
+          .catch(function() {});
+      }
+
+      function findBlockedEntry(dateStr) {
+        for (var i = 0; i < blockedDates.length; i++) {
+          var e = blockedDates[i];
+          if (dateStr >= e.start && dateStr <= e.end) return e;
+        }
+        return null;
+      }
 
       var currentUserId = "";
       var currentLineName = "";
@@ -508,6 +532,7 @@
       window.onload = function() {
         addItem();
         initializeLiff('2008790381-awGUgw07');
+        loadBlockedDates();
       };
 
       function initializeLiff(myLiffId) {
@@ -536,6 +561,13 @@
         var messages = [];
 
         if (dateInput.value) {
+            var be = findBlockedEntry(dateInput.value);
+            if (be) {
+                alert("🚫 " + be.reason + "，請改選其他日期。");
+                dateInput.value = "";
+                updateNotices();
+                return;
+            }
             var inputDate = new Date(dateInput.value);
             var today = new Date();
             inputDate.setHours(0,0,0,0);
@@ -799,6 +831,9 @@
         if(!name || !phone || !date) { alert("請檢查基本資料是否填寫完整！"); return; }
         if(totals.allShip > 0 && !address) { alert("選擇宅配請填寫地址！"); return; }
         if(phone.length !== 10) { alert("電話號碼格式錯誤！請填寫 10 碼數字"); return; }
+
+        var be = findBlockedEntry(date);
+        if (be) { alert("🚫 收件日 " + be.reason + "，請重新選擇日期！"); return; }
 
         var cards = document.querySelectorAll('.item-card');
         if(cards.length === 0) { alert("請至少新增一個品項！"); return; }
