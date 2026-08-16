@@ -6,17 +6,32 @@ import test from 'node:test'
 
 const html = await readFile(join(dirname(fileURLToPath(import.meta.url)), '..', 'index.html'), 'utf8')
 
-test('form success waits for bounded store notification and reuses submissionId', () => {
+test('only the failed server-relay branch invokes bounded notification fallback', () => {
   const sendIndex = html.indexOf('liff.sendMessages')
-  const notifyIndex = html.indexOf('return notifyOnly', sendIndex)
-  assert.ok(sendIndex >= 0 && notifyIndex > sendIndex)
+  assert.ok(sendIndex >= 0)
+
+  const sendSuccessIndex = html.indexOf('.then(function() {', sendIndex)
+  const sendCatchIndex = html.indexOf('.catch(function(err)', sendSuccessIndex)
+  assert.ok(sendSuccessIndex > sendIndex && sendCatchIndex > sendSuccessIndex)
+  assert.doesNotMatch(html.slice(sendSuccessIndex, sendCatchIndex), /notifyOnly/)
+
+  const relayIndex = html.indexOf('tryServerRelay([orderText], submissionId)')
+  const relayThenIndex = html.indexOf('.then(function(ok)', relayIndex)
+  const relayBlockEnd = html.indexOf('function trySendMessages', relayThenIndex)
+  assert.ok(relayIndex >= 0 && relayThenIndex > relayIndex && relayBlockEnd > relayThenIndex)
+  const relayBlock = html.slice(relayThenIndex, relayBlockEnd)
+  const falseBranchIndex = relayBlock.indexOf('else')
+  const notifyIndex = relayBlock.indexOf('notifyOnly([orderText], submissionId)', falseBranchIndex)
+  const fallbackIndex = relayBlock.indexOf('showCopyResult(clipboardOk)', falseBranchIndex)
+  assert.ok(falseBranchIndex >= 0 && notifyIndex > falseBranchIndex)
+  assert.ok(fallbackIndex > notifyIndex)
+  assert.doesNotMatch(relayBlock.slice(0, falseBranchIndex), /notifyOnly/)
+
   assert.match(html, /keepalive\s*:\s*true/)
   assert.match(html, /NOTIFY_TIMEOUT_MS/)
   assert.match(html, /notifyOnly\(\[[^\n]*\], submissionId\)\s*\.then\(function/)
   assert.match(html, /FORM_RELAY_API[\s\S]*submissionId/)
   assert.match(html, /tryServerRelay[\s\S]*submissionId/)
-  const closeIndex = html.indexOf('liff.closeWindow', notifyIndex)
-  if (closeIndex >= 0) assert.ok(closeIndex > notifyIndex)
 })
 
 test('persists the generated submissionId in GAS and reuses it across every delivery path', () => {
