@@ -15,10 +15,11 @@ test('only the failed server-relay branch invokes bounded notification fallback'
   assert.ok(sendSuccessIndex > sendIndex && sendCatchIndex > sendSuccessIndex)
   assert.doesNotMatch(html.slice(sendSuccessIndex, sendCatchIndex), /notifyOnly/)
 
-  const relayIndex = html.indexOf('tryServerRelay([orderText], submissionId)')
+  const relayIndex = html.lastIndexOf('tryServerRelay(', sendIndex)
   const relayThenIndex = html.indexOf('.then(function(ok)', relayIndex)
-  const relayBlockEnd = html.indexOf('function trySendMessages', relayThenIndex)
+  const relayBlockEnd = html.indexOf('var messages = buildLineMessages', relayThenIndex)
   assert.ok(relayIndex >= 0 && relayThenIndex > relayIndex && relayBlockEnd > relayThenIndex)
+  assert.match(html.slice(relayIndex, relayIndex + 220), /submissionId/)
   const relayBlock = html.slice(relayThenIndex, relayBlockEnd)
   const falseBranchIndex = relayBlock.indexOf('else')
   const notifyIndex = relayBlock.indexOf('notifyOnly([orderText], submissionId)', falseBranchIndex)

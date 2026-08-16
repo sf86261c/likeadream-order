@@ -1060,7 +1060,9 @@
               copyStatusMsg.innerHTML =
                 '<span style="color:#28a745; font-size:18px;">✅ 訂單明細已傳送至官方 LINE 對話！</span>';
             } else {
-              showCopyResult(clipboardOk);
+              notifyOnly([orderText], submissionId).then(function() {
+                showCopyResult(clipboardOk);
+              });
             }
           });
         }
@@ -1075,7 +1077,6 @@
         var messages = buildLineMessages(orderText);
         liff.sendMessages(messages)
           .then(function() {
-            return notifyOnly([orderText], submissionId).then(function() {
             manualCopyBox.style.display = "none";
             goToLineArea.style.display = "none";
             copyStatusMsg.innerHTML =
@@ -1084,7 +1085,6 @@
             setTimeout(function() {
               try { liff.closeWindow(); } catch(e) {}
             }, 2000);
-            });
           })
           .catch(function(err) {
             console.error('sendMessages failed:', err);
