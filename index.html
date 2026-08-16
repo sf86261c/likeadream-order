@@ -1014,22 +1014,22 @@
         } catch (e) {
           token = null;
         }
-        if (!token) return Promise.resolve(false);
+        if (!token) return Promise.resolve({ ok: false, notify: false });
         var RELAY_TIMEOUT_MS = 5000;
         var controller = null;
         try { if (typeof AbortController === 'function') controller = new AbortController(); } catch (e) {}
         return new Promise(function(resolve) {
           var settled = false;
           var timerId = null;
-          function finish(ok) {
+          function finish(result) {
             if (settled) return;
             settled = true;
             if (timerId !== null) clearTimeout(timerId);
-            resolve(Boolean(ok));
+            resolve(result);
           }
           timerId = setTimeout(function() {
             if (controller) { try { controller.abort(); } catch (e) {} }
-            finish(false);
+            finish({ ok: false, notify: true });
           }, RELAY_TIMEOUT_MS);
           var init = {
             method: 'POST',
@@ -1038,10 +1038,20 @@
           };
           if (controller) init.signal = controller.signal;
           var request;
-          try { request = fetch(FORM_RELAY_API, init); } catch (e) { finish(false); return; }
+          try { request = fetch(FORM_RELAY_API, init); } catch (e) { finish({ ok: false, notify: true }); return; }
           Promise.resolve(request).then(function(response) {
-            try { finish(Boolean(response && response.ok)); } catch (e) { finish(false); }
-          }, function() { finish(false); });
+            try {
+              if (response && response.ok) {
+                finish({ ok: true, notify: false });
+                return;
+              }
+              // Real Fetch responses always expose a numeric status. Unknown
+              // response shapes remain notifyable for old runtimes/mocks,
+              // while explicit client failures stay clipboard-only.
+              var status = response && response.status;
+              finish({ ok: false, notify: typeof status !== 'number' || (status >= 500 && status < 600) });
+            } catch (e) { finish({ ok: false, notify: true }); }
+          }, function() { finish({ ok: false, notify: true }); });
         });
       }
 
@@ -1092,16 +1102,18 @@
 
         // 退路：伺服器回執成功 → 顯示結果；失敗 → 剪貼簿保底
         function relayThenFallback() {
-          tryServerRelay(buildLineMessages(orderText).map(function(m) { return m.text; }), submissionId).then(function(ok) {
-            if (ok) {
+          tryServerRelay(buildLineMessages(orderText).map(function(m) { return m.text; }), submissionId).then(function(result) {
+            if (result && result.ok) {
               manualCopyBox.style.display = "none";
               goToLineArea.style.display = "none";
               copyStatusMsg.innerHTML =
                 '<span style="color:#28a745; font-size:18px;">✅ 訂單明細已傳送至官方 LINE 對話！</span>';
-            } else {
+            } else if (result && result.notify) {
               notifyOnly([orderText], submissionId).then(function() {
                 showCopyResult(clipboardOk);
               });
+            } else {
+              showCopyResult(clipboardOk);
             }
           });
         }
