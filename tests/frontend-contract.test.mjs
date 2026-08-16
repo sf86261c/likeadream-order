@@ -17,7 +17,7 @@ test('only the failed server-relay branch invokes bounded notification fallback'
   assert.doesNotMatch(html.slice(sendSuccessIndex, sendSuccessEnd), /notifyOnly/)
 
   const relayIndex = html.lastIndexOf('tryServerRelay(', sendIndex)
-  const relayThenIndex = html.indexOf('.then(function(ok)', relayIndex)
+  const relayThenIndex = html.indexOf('.then(function(result)', relayIndex)
   const relayBlockEnd = html.indexOf('var messages = buildLineMessages', relayThenIndex)
   assert.ok(relayIndex >= 0 && relayThenIndex > relayIndex && relayBlockEnd > relayThenIndex)
   assert.match(html.slice(relayIndex, relayIndex + 220), /submissionId/)
@@ -27,6 +27,7 @@ test('only the failed server-relay branch invokes bounded notification fallback'
   const fallbackIndex = relayBlock.indexOf('showCopyResult(clipboardOk)', falseBranchIndex)
   assert.ok(falseBranchIndex >= 0 && notifyIndex > falseBranchIndex)
   assert.ok(fallbackIndex > notifyIndex)
+  assert.match(relayBlock, /result\s*&&\s*result\.notify/)
   assert.doesNotMatch(relayBlock.slice(0, falseBranchIndex), /notifyOnly/)
 
   assert.match(html, /keepalive\s*:\s*true/)
@@ -107,13 +108,15 @@ function createRuntime({ fetchImpl, liff, nodes } = {}) {
 
 const flush = () => new Promise((resolve) => setImmediate(resolve))
 
-test('executes relay success, HTTP failure, rejection, and timeout with one bounded notification fallback', async () => {
-  for (const outcome of ['success', 'http', 'reject', 'timeout']) {
+test('classifies relay outcomes: client HTTP failures copy silently, unavailable delivery notifies once', async () => {
+  for (const outcome of ['success', 'client400', 'client429', 'server500', 'reject', 'timeout']) {
     const { runtime, timers, fetchCalls } = createRuntime({
       fetchImpl: () => {
         if (fetchCalls.length === 1) {
-          if (outcome === 'success') return Promise.resolve({ ok: true })
-          if (outcome === 'http') return Promise.resolve({ ok: false })
+          if (outcome === 'success') return Promise.resolve({ ok: true, status: 200 })
+          if (outcome === 'client400') return Promise.resolve({ ok: false, status: 400 })
+          if (outcome === 'client429') return Promise.resolve({ ok: false, status: 429 })
+          if (outcome === 'server500') return Promise.resolve({ ok: false, status: 500 })
           if (outcome === 'reject') return Promise.reject(new Error('network'))
           return new Promise(() => {})
         }
@@ -127,7 +130,8 @@ test('executes relay success, HTTP failure, rejection, and timeout with one boun
     }
     await flush()
     const notifyCalls = fetchCalls.filter(([, init]) => JSON.parse(init.body).notificationOnly === true)
-    assert.equal(notifyCalls.length, outcome === 'success' ? 0 : 1, outcome)
+    assert.equal(notifyCalls.length, ['server500', 'reject', 'timeout'].includes(outcome) ? 1 : 0, outcome)
+    assert.equal(runtime.copyResultCount, outcome === 'success' ? 0 : 1, outcome)
     assert.equal(timers.size, 0, `${outcome} left a timer behind`)
     if (outcome === 'timeout') assert.equal(runtime.abortCount, 1)
   }
