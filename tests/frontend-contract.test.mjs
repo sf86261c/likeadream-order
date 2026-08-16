@@ -11,10 +11,10 @@ test('only the failed server-relay branch invokes bounded notification fallback'
   const sendIndex = html.indexOf('liff.sendMessages')
   assert.ok(sendIndex >= 0)
 
-  const sendSuccessIndex = html.indexOf('.then(function() {', sendIndex)
-  const sendCatchIndex = html.indexOf('.catch(function(err)', sendSuccessIndex)
-  assert.ok(sendSuccessIndex > sendIndex && sendCatchIndex > sendSuccessIndex)
-  assert.doesNotMatch(html.slice(sendSuccessIndex, sendCatchIndex), /notifyOnly/)
+  const sendSuccessIndex = html.indexOf('Promise.resolve(sendPromise).then(function()', sendIndex)
+  const sendSuccessEnd = html.indexOf('}, sendFailed);', sendSuccessIndex)
+  assert.ok(sendSuccessIndex > sendIndex && sendSuccessEnd > sendSuccessIndex)
+  assert.doesNotMatch(html.slice(sendSuccessIndex, sendSuccessEnd), /notifyOnly/)
 
   const relayIndex = html.lastIndexOf('tryServerRelay(', sendIndex)
   const relayThenIndex = html.indexOf('.then(function(ok)', relayIndex)
@@ -111,7 +111,7 @@ test('executes relay success, HTTP failure, rejection, and timeout with one boun
   for (const outcome of ['success', 'http', 'reject', 'timeout']) {
     const { runtime, timers, fetchCalls } = createRuntime({
       fetchImpl: () => {
-        if (fetchCalls.length === 0) {
+        if (fetchCalls.length === 1) {
           if (outcome === 'success') return Promise.resolve({ ok: true })
           if (outcome === 'http') return Promise.resolve({ ok: false })
           if (outcome === 'reject') return Promise.reject(new Error('network'))
