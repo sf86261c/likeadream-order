@@ -269,8 +269,8 @@
       .customer-action-cta { display: flex; width: 100%; min-height: 56px; align-items: center; justify-content: center; padding: 12px 16px; border-radius: 14px; background: #06c755; color: #fff; font-size: 18px; font-weight: 700; line-height: 1.35; text-align: center; text-decoration: none; box-shadow: 0 5px 14px rgba(6, 199, 85, 0.3); animation: customerCtaPulse .6s ease-in-out 3; }
       .customer-action-cta:active { transform: scale(.98); }
       .customer-action-prompt { color: #6b4f4f; text-align: center; margin: 10px 0 0; }
-      .customer-action-card[data-state="handoff_started"] .customer-action-title { color: #8c6b2d; }
-      .customer-action-card[data-state="handoff_started"] .customer-action-cta { animation: none; }
+      .customer-action-card[data-state="sending"] .customer-action-title { color: #8c6b2d; }
+      .customer-action-card[data-state="sending"] .customer-action-cta { animation: none; }
       .summary-details { margin-top: 8px; text-align: left; }
       .summary-details > summary { cursor: pointer; min-height: 48px; padding: 14px 16px; border: 1px solid rgba(139, 94, 52, 0.25); border-radius: 12px; background: rgba(255, 255, 255, 0.6); color: #6b4f4f; font-size: 16px; font-weight: 700; }
       .summary-details[open] > summary { margin-bottom: 12px; }
@@ -490,10 +490,12 @@
         <div style="margin-bottom: 25px;">
           <textarea id="copyArea" readonly style="position:absolute; left:-9999px;"></textarea>
           <div id="copyStatusMsg" class="stored-status enter" style="--i:3;">資料已儲存，正在回傳 LINE 訊息…</div>
-          <div id="customerActionCard" class="customer-action-card" role="alert" aria-live="assertive" data-state="stored_sending">
-            <div class="customer-action-title">⚠️ 還差最後一步</div>
-            <p class="customer-action-warning">訊息尚未回傳給我們</p>
-            <p class="customer-action-instruction">訊息尚未回傳給店家，請務必按下方按鈕，回到 LINE 完成訊息傳送。</p>
+          <div id="storeNotificationStatus" role="status" aria-live="polite" style="display:none; color:#8c6b2d; font-size:14px; line-height:1.5; margin:0 0 12px;"></div>
+          <button id="retryStoreNotification" type="button" onclick="retryStoreNotification()" style="display:none; min-height:44px; margin:0 auto 14px; padding:10px 16px; border:1px solid #d4a373; border-radius:10px; background:#fff8ee; color:#8c6b2d;">重新確認店家通知</button>
+          <div id="customerActionCard" class="customer-action-card" role="alert" aria-live="assertive" data-state="sending">
+            <div id="customerActionTitle" class="customer-action-title">⚠️ 還差最後一步</div>
+            <p id="customerActionWarning" class="customer-action-warning">訊息尚未回傳給我們，請務必按下下方『回 LINE 送出』按鈕。</p>
+            <p id="customerActionInstruction" class="customer-action-instruction">回到 LINE 後請貼上完整內容並送出，我們才看得到。</p>
             <div id="manualCopyBox" style="display:none; margin-bottom:15px;">
               <div style="color:#b42318; font-weight:bold; font-size:16px; margin-bottom:10px; line-height:1.5;">
                 請先複製訂單內容，再回到 LINE 貼上
@@ -504,7 +506,7 @@
             </div>
             <div class="customer-action-cta-wrap">
               <a id="goToLineArea" href="https://lin.ee/oOteG0d" target="_blank" rel="noopener" class="customer-action-cta" onclick="startCustomerHandoff(event)">回 LINE 送出</a>
-              <p class="customer-action-prompt">進入 LINE 後，請貼上訊息並再按一次送出，我們才看得到。</p>
+            <p id="customerActionPrompt" class="customer-action-prompt">進入 LINE 後，請貼上訊息並再按一次送出，我們才看得到。</p>
             </div>
           </div>
         </div>
@@ -514,17 +516,22 @@
         </details>
 
         <div class="enter" style="--i:5; margin-top: 10px;">
-           <button class="btn btn-outline" onclick="window.location.reload()">填寫下一張</button>
+           <button id="newFormButton" class="btn btn-outline" onclick="window.location.reload()">填寫下一張</button>
         </div>
       </div>
     </div>
 
     <script>
-      var GAS_API_URL = "https://script.google.com/macros/s/AKfycbwcfq-WhYc4cYYpU0OPfqXZiGYFN_Bqy7V-Hv9TQAfY220oyQoQfGMmxhHcO65C-9ocUA/exec";
+      var FORM_SUBMISSIONS_API = "https://likeadreamcastella.zeabur.app/api/form-submissions";
       var FORM_RELAY_API = "https://likeadreamcastella.zeabur.app/api/form-relay";
       var BLOCKED_DATES_API = "https://likeadreamcastella.zeabur.app/api/blocked-dates";
       var FORM_ID = "order";
       var blockedDates = [];
+      var currentSubmissionId = null;
+      var submissionBusy = false;
+      var submissionSaveInFlight = false;
+      var savedWithVerifiedIdentity = false;
+      var AUTH_REQUIRED_MESSAGE = "請從 LINE 重新開啟表單並登入後再送出。";
 
       function escapeHtml(value) {
         return String(value == null ? "" : value)
@@ -562,6 +569,160 @@
       function createSubmissionId() {
         if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
         return 'submission-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+      }
+
+      function stableSubmissionId() {
+        if (!currentSubmissionId) currentSubmissionId = createSubmissionId();
+        return currentSubmissionId;
+      }
+
+      function accessToken() {
+        try {
+          return (typeof liff !== 'undefined' && liff.getAccessToken) ? liff.getAccessToken() : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function responseBody(response) {
+        return Promise.resolve(response.text()).then(function(text) {
+          var body = null;
+          try { body = text ? JSON.parse(text) : null; } catch (e) { body = null; }
+          return { response: response, body: body };
+        });
+      }
+
+      function requestWithTimeout(url, init, timeoutMs, errorCode) {
+        return new Promise(function(resolve, reject) {
+          var settled = false;
+          var timerId = setTimeout(function() {
+            if (settled) return;
+            settled = true;
+            var timeout = new Error('request timeout');
+            timeout.code = errorCode;
+            reject(timeout);
+          }, timeoutMs);
+          function finish(callback, value) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timerId);
+            callback(value);
+          }
+          var request;
+          try { request = fetch(url, init); } catch (err) { finish(reject, err); return; }
+          Promise.resolve(request)
+            .then(function(value) { return responseBody(value); })
+            .then(function(value) { finish(resolve, value); }, function(err) { finish(reject, err); });
+        });
+      }
+
+      function saveSubmission(token, submissionId, payload) {
+        if (!token) {
+          var authError = new Error('submission requires LIFF authentication');
+          authError.code = 'auth_required';
+          return Promise.reject(authError);
+        }
+        if (submissionSaveInFlight) {
+          var busy = new Error('submission save already in flight');
+          busy.code = 'save_pending';
+          return Promise.reject(busy);
+        }
+        submissionSaveInFlight = true;
+        return requestWithTimeout(FORM_SUBMISSIONS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ accessToken: token, submissionId: submissionId, formType: FORM_ID, payload: payload })
+        }, 5000, 'save_pending')
+        .then(function(result) {
+          var body = result.body;
+          if (result.response.status === 409) {
+            var saveErrorCode = String(body && body.error ? body.error : '').toLowerCase();
+            if (saveErrorCode === 'application_locked' || saveErrorCode.indexOf('duplicate') !== -1) {
+              var locked = new Error(body && body.error ? String(body.error) : 'application_locked');
+              locked.code = 'locked';
+              throw locked;
+            }
+            var conflict = new Error('submission save pending');
+            conflict.code = 'save_pending';
+            throw conflict;
+          }
+          if (!result.response.ok || !body || body.status !== 'success' || body.submissionId !== submissionId ||
+              !Array.isArray(body.customerTexts) || body.customerTexts.length < 1 ||
+              body.customerTexts.some(function(text) { return typeof text !== 'string' || text.length < 1; })) {
+            var pending = new Error('submission save response unavailable');
+            pending.code = 'save_pending';
+            throw pending;
+          }
+          return {
+            verified: true,
+            submissionId: submissionId,
+            customerTexts: body.customerTexts.slice(),
+            applicationNo: body.applicationNo || null,
+          };
+        })
+        .then(function(result) {
+          submissionSaveInFlight = false;
+          return result;
+        }, function(err) {
+          submissionSaveInFlight = false;
+          throw err;
+        });
+      }
+
+      function relayOperation(operation, submissionId, claimToken, failure) {
+        var token = accessToken();
+        if (!token) return Promise.reject(new Error('relay requires an authenticated token'));
+        var body = { accessToken: token, submissionId: submissionId, formType: FORM_ID, operation: operation };
+        if (claimToken) body.claimToken = claimToken;
+        if (failure) body.failure = failure;
+        return requestWithTimeout(FORM_RELAY_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(body)
+        }, 5000, 'relay_unknown').then(function(result) {
+          if (!result.response.ok || !result.body || result.body.ok !== true || !result.body.customer) {
+            throw new Error('relay response unavailable');
+          }
+          return result.body;
+        });
+      }
+
+      function showStoreNotificationUnresolved() {
+        var status = document.getElementById("storeNotificationStatus");
+        var retry = document.getElementById("retryStoreNotification");
+        status.innerText = "店家通知尚未確認，系統會保留這筆狀態。";
+        status.style.display = "block";
+        retry.style.display = "inline-block";
+      }
+
+      function notifyStore(submissionId) {
+        return relayOperation('notify', submissionId).then(function(result) {
+          var state = result && result.store && result.store.status;
+          if (state === 'succeeded') {
+            document.getElementById("storeNotificationStatus").innerText = "";
+            document.getElementById("storeNotificationStatus").style.display = "none";
+            document.getElementById("retryStoreNotification").style.display = "none";
+          } else {
+            showStoreNotificationUnresolved();
+          }
+          return result;
+        }).catch(function(error) {
+          showStoreNotificationUnresolved();
+          return { ok: false, store: { status: 'unknown' }, error: error };
+        });
+      }
+
+      function retryStoreNotification() {
+        if (!savedWithVerifiedIdentity || !currentSubmissionId) return;
+        document.getElementById("storeNotificationStatus").innerText = "正在確認店家通知…";
+        document.getElementById("storeNotificationStatus").style.display = "block";
+        document.getElementById("retryStoreNotification").style.display = "none";
+        notifyStore(currentSubmissionId);
+      }
+
+      function validCustomerState(result) {
+        var state = result && result.customer && result.customer.status;
+        return state === 'action_required' || state === 'sending' || state === 'succeeded' || state === 'unknown' || state === 'failed';
       }
 
       var PRODUCT_DATA = {
@@ -890,6 +1051,10 @@
         var cards = document.querySelectorAll('.item-card');
         if(cards.length === 0) { alert("請至少新增一個品項！"); return; }
 
+        if (submissionBusy) return;
+        var token = accessToken();
+        if (!token) { alert(AUTH_REQUIRED_MESSAGE); return; }
+        submissionBusy = true;
         var btn = document.getElementById("sBtn");
         btn.disabled = true;
         btn.innerHTML = '<span class="loader"></span> 處理中...';
@@ -927,6 +1092,7 @@
         if(pNames.length === 0) {
             alert("所有品項數量皆為 0，請填寫數量！");
             btn.disabled = false; btn.innerHTML = "確認送出訂單";
+            submissionBusy = false;
             return;
         }
 
@@ -949,37 +1115,36 @@
 
         var finalText = '【正式訂購】\n你好！我已完成訂購登記：\n---------------------------\n 姓名：' + orderData.cName + '\n 電話：' + orderData.cPhone + '\n 統編：' + (orderData.cTaxId || "無") + '\n 配送：自取' + totals.allPick + '盒 / 寄送' + totals.allShip + '盒\n 地址：' + (totals.allShip > 0 ? orderData.cAddress : "門市自取") + '\n 到貨日期：' + orderData.cDate + ' (' + orderData.cTime + ')\n 付款：' + orderData.paymentMethod + '\n 備註：' + (orderData.cNote || "無") + '\n---------------------------' + summaryText + '\n請小幫手協助確認，謝謝！';
 
-        var submissionId = createSubmissionId();
+        var submissionId = stableSubmissionId();
         document.getElementById("copyArea").value = finalText;
 
         // ★ 在 fetch 之前先複製（作為 sendMessages 失敗時的後備）
         var clipboardOk = fallbackCopy(finalText);
 
-        fetch(GAS_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          redirect: 'follow',
-          body: JSON.stringify(Object.assign({}, orderData, { submissionId: submissionId }))
-        })
-        .then(function(response) { return response.text(); })
-        .then(function(text) {
-          var res;
-          try { res = JSON.parse(text); } catch(e) {
-            console.error("JSON parse error:", text);
-            throw new Error("伺服器回應格式錯誤");
-          }
-          if (res.status === "success") {
-            showSuccess(orderData, summaryHtmlItems, totals);
-            autoSendOrder(finalText, clipboardOk, submissionId);
-          } else {
-            alert(res.msg || "送出失敗，請稍後再試");
-            btn.disabled = false; btn.innerText = "確認送出訂單";
-          }
+        saveSubmission(token, submissionId, orderData)
+        .then(function(saved) {
+          savedWithVerifiedIdentity = true;
+          var customerText = saved.customerTexts.join("\n\n");
+          document.getElementById("copyArea").value = customerText;
+          showSuccess(orderData, summaryHtmlItems, totals);
+          return notifyStore(submissionId).then(function() {
+            autoSendOrder(customerText, clipboardOk, submissionId, {
+              verified: true,
+              customerTexts: saved.customerTexts,
+            });
+          });
         })
         .catch(function(err) {
-          console.error("API Error:", err);
-          alert("發生錯誤：" + err.message + "\n請稍後再試");
-          btn.disabled = false; btn.innerText = "確認送出訂單";
+          submissionBusy = false;
+          btn.disabled = false;
+          btn.innerText = "確認送出訂單";
+          if (err && err.code === 'auth_required') {
+            alert(AUTH_REQUIRED_MESSAGE);
+          } else if (err && err.code === 'locked') {
+            alert("這筆資料已在出貨安排中，如需調整請直接在聊天室留言 😊");
+          } else {
+            alert("資料尚未完成保存，請稍後以同一筆資料重試。");
+          }
         });
       }
 
@@ -993,7 +1158,8 @@
         document.getElementById("successDesc").innerText = "資料已儲存，正在回傳 LINE 訊息…";
         document.getElementById("copyStatusMsg").innerText = "資料已儲存，正在回傳 LINE 訊息…";
         document.getElementById("customerActionCard").classList.remove("is-visible");
-        document.getElementById("customerActionCard").setAttribute("data-state", "stored_sending");
+        document.getElementById("customerActionCard").setAttribute("data-state", "sending");
+        document.getElementById("newFormButton").style.display = "none";
 
         formView.classList.add("view-out");
 
@@ -1022,169 +1188,261 @@
 
       // ===== 將長文字拆分成多條 LINE 訊息（每條上限 5000 字元，最多 5 條） =====
       function buildLineMessages(text) {
-        if (text.length <= 5000) return [{ type: 'text', text: text }];
-        var messages = [];
-        var lines = text.split('\n');
-        var chunk = '';
-        for (var i = 0; i < lines.length; i++) {
-          var next = chunk ? chunk + '\n' + lines[i] : lines[i];
-          if (next.length > 5000 && chunk) {
-            messages.push({ type: 'text', text: chunk });
-            chunk = lines[i];
-          } else {
-            chunk = next;
+        text = String(text == null ? '' : text);
+        var messages = [], chunk = '', chunkLength = 0;
+        function pushChunk() {
+          messages.push({ type: 'text', text: chunk });
+          chunk = '';
+          chunkLength = 0;
+        }
+        function appendText(value) {
+          for (var index = 0; index < value.length;) {
+            var codePoint = value.codePointAt(index);
+            var character = String.fromCodePoint(codePoint);
+            var characterLength = character.length;
+            if (chunkLength + characterLength > 5000) pushChunk();
+            chunk += character;
+            chunkLength += characterLength;
+            index += characterLength;
           }
         }
-        if (chunk) messages.push({ type: 'text', text: chunk });
-        return messages.slice(0, 5);
+        text.split('\n').forEach(function(line, index) {
+          if (index > 0) appendText('\n');
+          appendText(line);
+        });
+        if (chunkLength || messages.length === 0) pushChunk();
+        return messages;
+      }
+
+      function messageTextsToMessages(texts) {
+        var result = [];
+        (texts || []).forEach(function(text) {
+          buildLineMessages(String(text)).forEach(function(message) { result.push(message); });
+        });
+        return result;
       }
 
       // ===== 自動發送訂單到 LINE 聊天室（僅 LINE 內建瀏覽器可自動傳送） =====
-      function notifyOnly(texts, submissionId) {
-        var NOTIFY_TIMEOUT_MS = 1500;
-        var token = null;
-        try {
-          token = (typeof liff !== 'undefined' && liff.getAccessToken) ? liff.getAccessToken() : null;
-        } catch (e) {
-          token = null;
-        }
-        if (!token) return Promise.resolve(false);
-        var controller = null;
-        try { if (typeof AbortController === 'function') controller = new AbortController(); } catch (e) {}
-        return new Promise(function(resolve) {
-          var settled = false;
-          var timerId = null;
-          function finish(ok) {
-            if (settled) return;
-            settled = true;
-            if (timerId !== null) clearTimeout(timerId);
-            resolve(Boolean(ok));
-          }
-          timerId = setTimeout(function() {
-            if (controller) { try { controller.abort(); } catch (e) {} }
-            finish(false);
-          }, NOTIFY_TIMEOUT_MS);
-          var init = {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            keepalive: true,
-            body: JSON.stringify({ accessToken: token, texts: texts, submissionId: submissionId, formType: FORM_ID, notificationOnly: true })
-          };
-          if (controller) init.signal = controller.signal;
-          var request;
-          try { request = fetch(FORM_RELAY_API, init); } catch (e) { finish(false); return; }
-          Promise.resolve(request).then(function(response) {
-            try { finish(Boolean(response && response.ok)); } catch (e) { finish(false); }
-          }, function() { finish(false); });
-        });
-      }
-
-      function autoSendOrder(orderText, clipboardOk, submissionId) {
-        var messages = buildLineMessages(orderText);
-
-        function sendFailed(err) {
-          console.error('sendMessages failed:', err);
-          showCustomerActionRequired(clipboardOk);
-          try { notifyOnly(messages.map(function(m) { return m.text; }), submissionId); } catch (notifyErr) {}
-        }
+      function autoSendOrder(orderText, clipboardOk, submissionId, delivery) {
+        var verified = delivery && delivery.verified === true;
+        var texts = verified ? delivery.customerTexts.slice() : [orderText];
+        var messages = messageTextsToMessages(texts);
 
         function withSendTimeout(rawPromise) {
-          var SEND_TIMEOUT_MS = 5000;
           return new Promise(function(resolve, reject) {
             var settled = false;
             var timerId = setTimeout(function() {
               if (settled) return;
               settled = true;
-              reject(new Error('sendMessages timeout'));
-            }, SEND_TIMEOUT_MS);
+              var timeout = new Error('sendMessages timeout');
+              timeout.code = 'send_unknown';
+              reject(timeout);
+            }, 5000);
             function finish(callback, value) {
               if (settled) return;
               settled = true;
               clearTimeout(timerId);
               callback(value);
             }
-            Promise.resolve(rawPromise).then(function(value) {
-              finish(resolve, value);
-            }, function(err) {
-              finish(reject, err);
-            });
+            Promise.resolve(rawPromise).then(function(value) { finish(resolve, value); }, function(err) { finish(reject, err); });
           });
         }
 
+        var sentCount = 0;
+        function sendBatches(offset) {
+          if (offset >= messages.length) return Promise.resolve();
+          var batch = messages.slice(offset, offset + 5);
+          var raw;
+          try { raw = liff.sendMessages(batch); } catch (err) { return Promise.reject(err); }
+          return withSendTimeout(raw).then(function() {
+            sentCount += batch.length;
+            return sendBatches(offset + batch.length);
+          });
+        }
+
+        function sendFailed(err) {
+          if (err && (sentCount > 0 || err.code === 'send_unknown')) err.code = 'send_unknown';
+          if (!verified) {
+            showCustomerActionRequired(clipboardOk);
+            return;
+          }
+          var code = String(err && (err.code || err.name) || '').toUpperCase();
+          var message = String(err && err.message || '').toLowerCase();
+          var knownNoSendCode = code === '403' || code === 'PERMISSION_DENIED' || code === 'FORBIDDEN' ||
+            code === 'NOT_SUPPORTED' || code === 'INVALID_MESSAGE' || code === 'INVALID';
+          var knownNoSendMessage = message === "user doesn't grant required permissions yet";
+          var failure = err && (err.sentCount > 0 || err.code === 'send_unknown') ? 'unknown' :
+            (knownNoSendCode || knownNoSendMessage ? 'definite' : 'unknown');
+          relayOperation('customer_failed', submissionId, delivery.claimToken, failure).then(function(result) {
+            var state = result && result.customer && result.customer.status;
+            if (state === 'unknown' || state === 'sending' || !validCustomerState(result)) {
+              showCustomerUnknown();
+            } else if (state === 'failed' && failure === 'definite') {
+              relayOperation('fallback', submissionId).then(function(fallback) {
+                if (fallback.customer.status === 'succeeded' && fallback.customer.source === 'official') showOfficialRelaySuccess();
+                else if (fallback.customer.status === 'unknown' || fallback.customer.status === 'sending') showCustomerUnknown();
+                else if (fallback.customer.status === 'action_required') showCustomerActionRequired(clipboardOk);
+                else showCustomerFailed(clipboardOk);
+              }).catch(function() { showCustomerUnknown(); });
+            } else {
+              showCustomerActionRequired(clipboardOk);
+            }
+          }).catch(function() { showCustomerUnknown(); });
+        }
+
         if (typeof liff === 'undefined') {
-          sendFailed(new Error('LIFF unavailable'));
+          if (verified) {
+            relayOperation('fallback', submissionId).then(function(result) {
+              if (result.customer.status === 'succeeded' && result.customer.source === 'official') showOfficialRelaySuccess();
+              else if (result.customer.status === 'unknown' || result.customer.status === 'sending') showCustomerUnknown();
+              else showCustomerActionRequired(clipboardOk);
+            }).catch(function() { showCustomerUnknown(); });
+          } else {
+            sendFailed(new Error('LIFF unavailable'));
+          }
           return;
         }
         var inClient = false;
-        try { inClient = liff.isInClient() === true; } catch (err) {
-          sendFailed(err);
-          return;
-        }
+        try { inClient = liff.isInClient() === true; } catch (err) { inClient = false; }
         if (!inClient) {
-          sendFailed(new Error('LIFF is not running in the LINE client'));
-          return;
-        }
-
-        var sendPromise;
-        try {
-          var rawSendPromise = liff.sendMessages(messages);
-          sendPromise = withSendTimeout(rawSendPromise);
-        } catch (err) {
-          sendFailed(err);
-          return;
-        }
-        Promise.resolve(sendPromise).then(function() {
-          try {
-            showCustomerSentSuccess();
-          } catch (uiErr) {
-            console.error('sendMessages success UI failed:', uiErr);
+          if (verified) {
+            relayOperation('fallback', submissionId).then(function(result) {
+              if (result.customer.status === 'succeeded' && result.customer.source === 'official') showOfficialRelaySuccess();
+              else if (result.customer.status === 'unknown' || result.customer.status === 'sending') showCustomerUnknown();
+              else showCustomerActionRequired(clipboardOk);
+            }).catch(function() { showCustomerUnknown(); });
+          } else {
+            showCustomerActionRequired(clipboardOk);
           }
-        }, sendFailed);
+          return;
+        }
+        if (!verified) { sendBatches(0).then(function() { showCustomerSentSuccess(); }, sendFailed); return; }
+
+        relayOperation('customer_start', submissionId).then(function(started) {
+          var state = started && started.customer && started.customer.status;
+          if (state === 'succeeded') {
+            if (started.customer.source === 'official') showOfficialRelaySuccess(); else showCustomerSentSuccess();
+            return;
+          }
+          if (state !== 'sending' || !started.claimToken) {
+            if (state === 'unknown' || state === 'sending') showCustomerUnknown();
+            else if (state === 'failed') showCustomerFailed(clipboardOk);
+            else showCustomerActionRequired(clipboardOk);
+            return;
+          }
+          delivery.claimToken = started.claimToken;
+          sendBatches(0).then(function() {
+            relayOperation('customer_sent', submissionId, delivery.claimToken).then(function(sent) {
+              var sentState = sent && sent.customer && sent.customer.status;
+              if (sentState === 'succeeded' && sent.customer.source === 'official') showOfficialRelaySuccess();
+              else if (sentState === 'succeeded') showCustomerSentSuccess();
+              else showCustomerUnknown();
+            }).catch(function() { showCustomerUnknown(); });
+          }, sendFailed);
+        }).catch(function() { showCustomerUnknown(); });
       }
 
       function showCustomerSentSuccess() {
         var actionCard = document.getElementById("customerActionCard");
         actionCard.classList.remove("is-visible");
-        actionCard.setAttribute("data-state", "sent");
+        actionCard.setAttribute("data-state", "succeeded");
         document.getElementById("successIcon").className = "bi bi-check-circle-fill success-icon sent";
         document.getElementById("successTitle").innerText = "訂單訊息已送出！";
         document.getElementById("successDesc").innerText = "表單資料已儲存，訂單訊息已回傳給我們。";
-        document.getElementById("copyStatusMsg").innerHTML =
-          '<span style="color:#28a745; font-size:18px;">✅ 訂單訊息已自動傳送至聊天室！</span><br>' +
-          '<span style="color:#888; font-size:14px;">2 秒後自動返回聊天室...</span>';
+        document.getElementById("copyStatusMsg").innerHTML = '<span style="color:#28a745; font-size:18px;">✅ 訂單訊息已自動傳送至聊天室！</span>';
         document.getElementById("manualCopyBox").style.display = "none";
         document.getElementById("goToLineArea").style.display = "none";
+        document.getElementById("newFormButton").style.display = "block";
         fireConfetti();
-        setTimeout(function() {
-          try { liff.closeWindow(); } catch(e) {}
-        }, 2000);
+      }
+
+      function showOfficialRelaySuccess() {
+        var actionCard = document.getElementById("customerActionCard");
+        actionCard.classList.remove("is-visible");
+        actionCard.setAttribute("data-state", "succeeded");
+        document.getElementById("successIcon").className = "bi bi-check-circle-fill success-icon sent";
+        document.getElementById("successTitle").innerText = "官方帳號已代傳完整資料";
+        document.getElementById("successDesc").innerText = "官方帳號已代傳完整資料，請回 LINE 核對";
+        document.getElementById("copyStatusMsg").innerText = "官方帳號已代傳完整資料，請回 LINE 核對";
+        document.getElementById("manualCopyBox").style.display = "none";
+        document.getElementById("goToLineArea").style.display = "none";
+        document.getElementById("newFormButton").style.display = "block";
+        fireConfetti();
+      }
+
+      function showCustomerUnknown() {
+        var actionCard = document.getElementById("customerActionCard");
+        actionCard.classList.add("is-visible");
+        actionCard.setAttribute("data-state", "unknown");
+        document.getElementById("customerActionTitle").innerText = "訊息狀態待確認";
+        document.getElementById("successView").classList.add("customer-action-immediate");
+        document.getElementById("successIcon").className = "bi bi-hourglass-split success-icon";
+        document.getElementById("successTitle").innerText = "正在確認訊息狀態";
+        document.getElementById("successDesc").innerText = "LINE 回傳狀態尚未確認，請勿重複送出。";
+        document.getElementById("copyStatusMsg").innerText = "正在確認 LINE 訊息狀態，請勿重複送出。";
+        document.getElementById("manualCopyBox").style.display = "none";
+        document.getElementById("goToLineArea").style.display = "none";
+        document.getElementById("newFormButton").style.display = "none";
+        document.getElementById("customerActionWarning").style.display = "none";
+        document.getElementById("customerActionInstruction").style.display = "none";
+        document.getElementById("customerActionPrompt").style.display = "none";
+      }
+
+      function showCustomerFailed(clipboardOk) {
+        showCustomerActionRequired(clipboardOk);
+        document.getElementById("customerActionCard").setAttribute("data-state", "failed");
+        document.getElementById("successDesc").innerText = "訊息回傳失敗，請依下方步驟完成。";
       }
 
       function showCustomerActionRequired(clipboardOk) {
         var actionCard = document.getElementById("customerActionCard");
         actionCard.classList.add("is-visible");
-        actionCard.setAttribute("data-state", "customer_action_required");
+        actionCard.setAttribute("data-state", "action_required");
+        document.getElementById("customerActionTitle").innerText = "⚠️ 還差最後一步";
         var successView = document.getElementById("successView");
         successView.classList.add("customer-action-immediate");
         document.getElementById("successIcon").className = "bi bi-exclamation-triangle-fill success-icon";
         document.getElementById("successTitle").innerText = "資料已儲存";
         document.getElementById("successDesc").innerText = "資料已儲存，但 LINE 訊息尚未完成回傳。";
-        document.getElementById("copyStatusMsg").innerHTML = clipboardOk
-          ? '<span style="color:#8c6b2d;">訊息尚未回傳，訂單內容已準備好，請依下方步驟完成。</span>'
-          : '<span style="color:#b42318;">訊息尚未回傳，請先複製訂單內容再前往 LINE。</span>';
+        document.getElementById("copyStatusMsg").innerText = "訊息尚未回傳給我們，請務必按下下方『回 LINE 送出』按鈕。";
         document.getElementById("manualCopyBox").style.display = clipboardOk ? "none" : "block";
+        document.getElementById("goToLineArea").style.display = "flex";
+        document.getElementById("newFormButton").style.display = "none";
+        document.getElementById("customerActionWarning").style.display = "block";
+        document.getElementById("customerActionInstruction").style.display = "block";
+        document.getElementById("customerActionPrompt").style.display = "block";
       }
 
-      function startCustomerHandoff() {
+      function startCustomerHandoff(event) {
         var text = document.getElementById("copyArea").value;
         var copied = fallbackCopy(text);
         if (!copied && navigator.clipboard && navigator.clipboard.writeText) {
           try { navigator.clipboard.writeText(text).catch(function() {}); } catch (e) {}
         }
         var actionCard = document.getElementById("customerActionCard");
-        actionCard.setAttribute("data-state", "handoff_started");
-        document.getElementById("copyStatusMsg").innerHTML =
-          '<span style="color:#8c6b2d;">已再次準備訂單訊息，請回 LINE 貼上並送出。</span>';
+        if (!savedWithVerifiedIdentity || !currentSubmissionId) {
+          actionCard.setAttribute("data-state", "action_required");
+          document.getElementById("copyStatusMsg").innerText = "訊息尚未回傳給我們，請務必按下下方『回 LINE 送出』按鈕。";
+          return;
+        }
+        if (event && event.preventDefault) event.preventDefault();
+        actionCard.setAttribute("data-state", "sending");
+        document.getElementById("copyStatusMsg").innerText = "正在保留這筆回傳狀態，請稍候再回 LINE。";
+        var handoffUrl = document.getElementById("goToLineArea").href;
+        relayOperation('customer_start', currentSubmissionId).then(function(result) {
+          var customer = result && result.customer || {};
+          if (customer.status === 'succeeded') {
+            if (customer.source === 'official') showOfficialRelaySuccess();
+            else showCustomerSentSuccess();
+          } else if (customer.status === 'sending' && result.claimToken && customer.source === 'client') {
+            showCustomerUnknown();
+            try { window.open(handoffUrl, '_blank', 'noopener'); } catch (e) {}
+          } else if (customer.status === 'unknown' || customer.status === 'sending') {
+            showCustomerUnknown();
+          } else {
+            showCustomerActionRequired(true);
+          }
+        }).catch(function() { showCustomerUnknown(); });
       }
 
       function showCopyResult(clipboardOk) {
