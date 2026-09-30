@@ -530,6 +530,8 @@
       var currentSubmissionId = null;
       var submissionBusy = false;
       var submissionSaveInFlight = false;
+      // Allow for two LINE identity requests (5s each), GAS (10s), and storage/network overhead.
+      var SAVE_CONFIRMATION_TIMEOUT_MS = 30000;
       var savedWithVerifiedIdentity = false;
       var AUTH_REQUIRED_MESSAGE = "請從 LINE 重新開啟表單並登入後再送出。";
 
@@ -632,7 +634,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ accessToken: token, submissionId: submissionId, formType: FORM_ID, payload: payload })
-        }, 5000, 'save_pending')
+        }, SAVE_CONFIRMATION_TIMEOUT_MS, 'save_pending')
         .then(function(result) {
           var body = result.body;
           if (result.response.status === 409) {
@@ -1146,7 +1148,7 @@
           } else if (err && err.code === 'locked') {
             alert("這筆資料已在出貨安排中，如需調整請直接在聊天室留言 😊");
           } else {
-            alert("資料尚未完成保存，請稍後以同一筆資料重試。");
+            alert("尚未收到保存確認，資料可能已送達。請稍後以同一筆資料重試，或回 LINE 聯絡我們確認。");
           }
         });
       }
