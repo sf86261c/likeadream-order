@@ -476,6 +476,7 @@
 
         <div class="enter" style="--i:10;">
         <button type="submit" class="btn btn-submit" id="sBtn" disabled>確認送出訂單</button>
+        <p id="submissionError" role="alert" style="display:none; color:#b42318; font-size:16px; line-height:1.6;"></p>
         <div id="btnHint" style="text-align:center; color:#d63031; font-size:12px; margin-top:5px;">請至少選擇一盒商品</div>
         </div>
       </form>
@@ -490,6 +491,10 @@
         <div style="margin-bottom: 25px;">
           <textarea id="copyArea" readonly style="position:absolute; left:-9999px;"></textarea>
           <div id="copyStatusMsg" class="stored-status enter" style="--i:3;">資料已儲存，正在回傳 LINE 訊息…</div>
+          <div id="receiptConfirmationActions" aria-live="polite">
+            <button id="confirmReceiptButton" type="button" class="btn btn-outline" onclick="retryReceiptConfirmation()" style="display:none; min-height:48px;">重新確認收件</button>
+            <a id="receiptContactLink" href="https://lin.ee/oOteG0d" target="_blank" rel="noopener" style="display:none; color:#16733b; min-height:48px; padding:14px; text-decoration:underline;">回 LINE 聯絡我們確認</a>
+          </div>
           <div id="storeNotificationStatus" role="status" aria-live="polite" style="display:none; color:#8c6b2d; font-size:14px; line-height:1.5; margin:0 0 12px;"></div>
           <button id="retryStoreNotification" type="button" onclick="retryStoreNotification()" style="display:none; min-height:44px; margin:0 auto 14px; padding:10px 16px; border:1px solid #d4a373; border-radius:10px; background:#fff8ee; color:#8c6b2d;">重新確認店家通知</button>
           <div id="customerActionCard" class="customer-action-card" role="alert" aria-live="assertive" data-state="sending">
@@ -510,13 +515,13 @@
             </div>
           </div>
         </div>
-        <details class="summary-details" style="--i:4;">
+        <details id="summaryDetails" class="summary-details" style="--i:4;">
           <summary>查看訂購摘要</summary>
           <div class="order-summary" id="summaryBox"></div>
         </details>
 
         <div class="enter" style="--i:5; margin-top: 10px;">
-           <button id="newFormButton" class="btn btn-outline" onclick="window.location.reload()">填寫下一張</button>
+           <button id="newFormButton" class="btn btn-outline" onclick="startNewForm()">填寫下一張</button>
         </div>
       </div>
     </div>
@@ -532,6 +537,11 @@
       var submissionSaveInFlight = false;
       // Allow for two LINE identity requests (5s each), GAS (10s), and storage/network overhead.
       var SAVE_CONFIRMATION_TIMEOUT_MS = 30000;
+      var SAVE_STATUS_TIMEOUT_MS = 15000;
+      var SAVE_STATUS_RETRY_MS = 3000;
+      var saveConfirmation = null;
+      var resultViewVersion = 0;
+      var customerHandoffInFlight = false;
       var savedWithVerifiedIdentity = false;
       var AUTH_REQUIRED_MESSAGE = "請從 LINE 重新開啟表單並登入後再送出。";
 
@@ -618,6 +628,153 @@
         });
       }
 
+      function savedSubmissionResult(body, submissionId, requireFormType) {
+        if (!body || body.status !== 'success' || body.submissionId !== submissionId ||
+            (requireFormType && body.formType !== FORM_ID) ||
+            (body.formType != null && body.formType !== FORM_ID) ||
+            !Array.isArray(body.customerTexts) || body.customerTexts.length < 1 ||
+            body.customerTexts.some(function(text) { return typeof text !== 'string' || text.trim().length < 1; }) ||
+            (body.applicationNo != null && (typeof body.applicationNo !== 'string' || body.applicationNo.trim().length < 1))) return null;
+        return {
+          verified: true,
+          submissionId: submissionId,
+          customerTexts: body.customerTexts.slice(),
+          applicationNo: body.applicationNo || null,
+        };
+      }
+
+      function definiteSaveError(result) {
+        var body = result && result.body;
+        if (!body || body.status !== 'error') return null;
+        var code = String(body.error || '').toLowerCase();
+        var known = ['unauthorized', 'auth_required', 'application_locked', 'invalid_request',
+          'invalid_payload', 'too_large', 'timeout', 'gas_unavailable', 'submission_conflict', 'submission_rejected'];
+        if (known.indexOf(code) === -1) return null;
+        var error = new Error('submission rejected before confirmation');
+        error.definite = true;
+        error.code = code === 'unauthorized' ? 'auth_required' : code === 'application_locked' ? 'locked' : code;
+        return error;
+      }
+
+      function showSubmissionError(error) {
+        var code = error && error.code;
+        var message = code === 'auth_required' ? AUTH_REQUIRED_MESSAGE :
+          code === 'locked' ? '這筆資料已在出貨安排中，如需調整請直接在聊天室留言 😊' :
+          code === 'gas_unavailable' ? '表單暫時無法收件，請稍後再試，或回 LINE 聯絡我們。' :
+          code === 'submission_conflict' || code === 'submission_rejected' ? '這筆資料無法重送，請回 LINE 聯絡我們確認。' :
+          '資料無法送出，請檢查欄位後再試，或回 LINE 聯絡我們。';
+        var status = document.getElementById("submissionError");
+        status.innerText = message;
+        status.style.display = "block";
+      }
+
+      function showSaveConfirming(recheckAvailable, error) {
+        resultViewVersion += 1;
+        document.getElementById("formView").classList.add("hide");
+        var banner = document.getElementById("mainBanner");
+        if (banner) banner.classList.add("hide");
+        var successView = document.getElementById("successView");
+        successView.classList.remove("hide");
+        successView.classList.add("show", "customer-action-immediate");
+        document.getElementById("successIcon").className = "bi bi-hourglass-split success-icon";
+        document.getElementById("successTitle").innerText = "正在確認收件";
+        document.getElementById("successDesc").innerText = "請勿重複填寫，系統正在確認這筆資料。";
+        document.getElementById("copyStatusMsg").innerText = error && error.code === 'auth_required'
+          ? "請從 LINE 重新開啟並登入後，再確認這筆收件；請勿重複填寫。"
+          : "系統會使用同一筆資料確認收件，請稍候。";
+        document.getElementById("customerActionCard").classList.remove("is-visible");
+        document.getElementById("customerActionCard").setAttribute("data-state", "confirming");
+        document.getElementById("summaryDetails").style.display = "none";
+        document.getElementById("summaryBox").innerHTML = "";
+        document.getElementById("manualCopyBox").style.display = "none";
+        document.getElementById("goToLineArea").style.display = "none";
+        document.getElementById("newFormButton").style.display = "none";
+        document.getElementById("retryStoreNotification").style.display = "none";
+        var paymentArea = document.getElementById("successLinePayArea");
+        if (paymentArea) paymentArea.style.display = "none";
+        document.getElementById("confirmReceiptButton").style.display = recheckAvailable ? "block" : "none";
+        document.getElementById("confirmReceiptButton").disabled = !recheckAvailable;
+        document.getElementById("receiptContactLink").style.display = recheckAvailable ? "block" : "none";
+        document.getElementById("sBtn").disabled = true;
+        window.scrollTo(0, 0);
+      }
+
+      function activeSaveConfirmation(attempt) {
+        return saveConfirmation === attempt && !attempt.settled && currentSubmissionId === attempt.submissionId;
+      }
+
+      function checkSavedSubmission(attempt, remaining) {
+        if (!activeSaveConfirmation(attempt) || attempt.checking) return;
+        attempt.checking = true;
+        document.getElementById("confirmReceiptButton").disabled = true;
+        var token = accessToken();
+        var request;
+        if (!token) {
+          var authError = new Error('confirmation requires LIFF authentication');
+          authError.code = 'auth_required';
+          request = Promise.reject(authError);
+        } else {
+          request = requestWithTimeout(FORM_SUBMISSIONS_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ accessToken: token, submissionId: attempt.submissionId, formType: FORM_ID, operation: 'status' })
+          }, SAVE_STATUS_TIMEOUT_MS, 'save_pending').then(function(result) {
+            var saved = result.response.ok && savedSubmissionResult(result.body, attempt.submissionId, true);
+            if (saved) return saved;
+            throw definiteSaveError(result) || new Error('saved snapshot not yet confirmed');
+          });
+        }
+        request.then(function(saved) {
+          if (!activeSaveConfirmation(attempt)) return;
+          attempt.settled = true;
+          attempt.checking = false;
+          saveConfirmation = null;
+          document.getElementById("confirmReceiptButton").style.display = "none";
+          document.getElementById("receiptContactLink").style.display = "none";
+          attempt.resolve(saved);
+        }, function(error) {
+          if (!activeSaveConfirmation(attempt)) return;
+          attempt.checking = false;
+          if (remaining > 1 && (!error || error.code !== 'auth_required')) {
+            attempt.timerId = setTimeout(function() {
+              attempt.timerId = null;
+              checkSavedSubmission(attempt, remaining - 1);
+            }, SAVE_STATUS_RETRY_MS);
+          } else {
+            showSaveConfirming(true, error);
+          }
+        });
+      }
+
+      function confirmSavedSubmission(submissionId) {
+        return new Promise(function(resolve) {
+          var attempt = { submissionId: submissionId, resolve: resolve, checking: false, settled: false, timerId: null };
+          saveConfirmation = attempt;
+          showSaveConfirming(false);
+          checkSavedSubmission(attempt, 3);
+        });
+      }
+
+      function retryReceiptConfirmation() {
+        var attempt = saveConfirmation;
+        if (!attempt || !activeSaveConfirmation(attempt) || attempt.checking || attempt.timerId !== null) return;
+        showSaveConfirming(false);
+        checkSavedSubmission(attempt, 1);
+      }
+
+      function startNewForm() {
+        if (!savedWithVerifiedIdentity || submissionSaveInFlight || saveConfirmation ||
+            document.getElementById("customerActionCard").getAttribute("data-state") !== "succeeded") return;
+        window.location.reload();
+      }
+
+      function showSavedReceiptHeading() {
+        if (!savedWithVerifiedIdentity) return;
+        document.getElementById("successIcon").className = "bi bi-check-circle-fill success-icon sent";
+        document.getElementById("successTitle").innerText = "表單已成功送出";
+        document.getElementById("successDesc").innerText = "我們已收到這筆表單資料，請勿重複填寫。";
+      }
+
       function saveSubmission(token, submissionId, payload) {
         if (!token) {
           var authError = new Error('submission requires LIFF authentication');
@@ -630,44 +787,24 @@
           return Promise.reject(busy);
         }
         submissionSaveInFlight = true;
+        document.getElementById("submissionError").style.display = "none";
         return requestWithTimeout(FORM_SUBMISSIONS_API, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ accessToken: token, submissionId: submissionId, formType: FORM_ID, payload: payload })
-        }, SAVE_CONFIRMATION_TIMEOUT_MS, 'save_pending')
-        .then(function(result) {
-          var body = result.body;
-          if (result.response.status === 409) {
-            var saveErrorCode = String(body && body.error ? body.error : '').toLowerCase();
-            if (saveErrorCode === 'application_locked' || saveErrorCode.indexOf('duplicate') !== -1) {
-              var locked = new Error(body && body.error ? String(body.error) : 'application_locked');
-              locked.code = 'locked';
-              throw locked;
-            }
-            var conflict = new Error('submission save pending');
-            conflict.code = 'save_pending';
-            throw conflict;
-          }
-          if (!result.response.ok || !body || body.status !== 'success' || body.submissionId !== submissionId ||
-              !Array.isArray(body.customerTexts) || body.customerTexts.length < 1 ||
-              body.customerTexts.some(function(text) { return typeof text !== 'string' || text.length < 1; })) {
-            var pending = new Error('submission save response unavailable');
-            pending.code = 'save_pending';
-            throw pending;
-          }
-          return {
-            verified: true,
-            submissionId: submissionId,
-            customerTexts: body.customerTexts.slice(),
-            applicationNo: body.applicationNo || null,
-          };
-        })
-        .then(function(result) {
+        }, SAVE_CONFIRMATION_TIMEOUT_MS, 'save_pending').then(function(result) {
+          var saved = result.response.ok && savedSubmissionResult(result.body, submissionId, false);
+          if (saved) return saved;
+          throw definiteSaveError(result) || new Error('submission save response unavailable');
+        }).catch(function(error) {
+          if (error && error.definite) throw error;
+          return confirmSavedSubmission(submissionId);
+        }).then(function(result) {
           submissionSaveInFlight = false;
           return result;
-        }, function(err) {
+        }, function(error) {
           submissionSaveInFlight = false;
-          throw err;
+          throw error;
         });
       }
 
@@ -856,7 +993,7 @@
         var hint = document.getElementById('btnHint');
 
         if ((allPick + allShip) > 0) {
-            btn.disabled = false;
+            btn.disabled = submissionBusy || submissionSaveInFlight;
             hint.innerText = "";
         } else {
             btn.disabled = true;
@@ -1036,6 +1173,7 @@
       }
 
       function prepareAndSubmit() {
+        if (submissionBusy || submissionSaveInFlight || saveConfirmation) return;
         var name = document.getElementById("cName").value;
         var phone = document.getElementById("cPhone").value;
         var taxId = document.getElementById("cTaxId").value;
@@ -1130,6 +1268,7 @@
 
         saveSubmission(token, submissionId, orderData)
         .then(function(saved) {
+          if (submissionId !== currentSubmissionId) return;
           savedWithVerifiedIdentity = true;
           var customerText = saved.customerTexts.join("\n\n");
           document.getElementById("copyArea").value = customerText;
@@ -1140,28 +1279,28 @@
           });
         })
         .catch(function(err) {
+          if (submissionId !== currentSubmissionId) return;
           submissionBusy = false;
           btn.disabled = false;
           btn.innerText = "確認送出訂單";
-          if (err && err.code === 'auth_required') {
-            alert(AUTH_REQUIRED_MESSAGE);
-          } else if (err && err.code === 'locked') {
-            alert("這筆資料已在出貨安排中，如需調整請直接在聊天室留言 😊");
-          } else {
-            alert("尚未收到保存確認，資料可能已送達。請稍後以同一筆資料重試，或回 LINE 聯絡我們確認。");
-          }
+          showSubmissionError(err);
         });
       }
 
       // ===== 顯示成功畫面（表單淡出 → 成功畫面果凍彈入 + 彩帶）=====
       function showSuccess(data, itemsHtml, totals) {
+        var viewVersion = ++resultViewVersion;
+        var viewSubmissionId = currentSubmissionId;
+        document.getElementById("summaryDetails").style.display = "block";
+        document.getElementById("confirmReceiptButton").style.display = "none";
+        document.getElementById("receiptContactLink").style.display = "none";
         var formView = document.getElementById("formView");
         var successView = document.getElementById("successView");
 
         document.getElementById("successIcon").className = "bi bi-hourglass-split success-icon";
-        document.getElementById("successTitle").innerText = "資料已儲存";
-        document.getElementById("successDesc").innerText = "資料已儲存，正在回傳 LINE 訊息…";
-        document.getElementById("copyStatusMsg").innerText = "資料已儲存，正在回傳 LINE 訊息…";
+        document.getElementById("successTitle").innerText = "表單已成功送出";
+        document.getElementById("successDesc").innerText = "我們已收到這筆表單資料，請勿重複填寫。";
+        document.getElementById("copyStatusMsg").innerText = "我們已收到這筆表單資料，請勿重複填寫。";
         document.getElementById("customerActionCard").classList.remove("is-visible");
         document.getElementById("customerActionCard").setAttribute("data-state", "sending");
         document.getElementById("newFormButton").style.display = "none";
@@ -1169,6 +1308,7 @@
         formView.classList.add("view-out");
 
         setTimeout(function() {
+          if (viewVersion !== resultViewVersion || viewSubmissionId !== currentSubmissionId || saveConfirmation) return;
           formView.classList.add("hide");
 
           var summaryHtml =
@@ -1229,6 +1369,12 @@
 
       // ===== 自動發送訂單到 LINE 聊天室（僅 LINE 內建瀏覽器可自動傳送） =====
       function autoSendOrder(orderText, clipboardOk, submissionId, delivery) {
+        if (saveConfirmation || submissionSaveInFlight) return;
+        var deliverySubmissionId = currentSubmissionId;
+        var deliveryVersion = resultViewVersion;
+        function deliveryActive() {
+          return currentSubmissionId === deliverySubmissionId && resultViewVersion === deliveryVersion && !saveConfirmation;
+        }
         var verified = delivery && delivery.verified === true;
         var texts = verified ? delivery.customerTexts.slice() : [orderText];
         var messages = messageTextsToMessages(texts);
@@ -1249,13 +1395,17 @@
         }
 
         function recoverCustomerStatus(afterCustomerFailure) {
+          if (!deliveryActive()) return;
           relayOperation('status', submissionId).then(function(result) {
+            if (!deliveryActive()) return;
             handleFallbackResult(result, afterCustomerFailure);
-          }).catch(function() { showCustomerUnknown(); });
+          }).catch(function() { if (deliveryActive()) showCustomerUnknown(); });
         }
 
         function requestOfficialFallback(afterCustomerFailure) {
+          if (!deliveryActive()) return;
           relayOperation('fallback', submissionId).then(function(result) {
+            if (!deliveryActive()) return;
             handleFallbackResult(result, afterCustomerFailure);
           }).catch(function() { recoverCustomerStatus(afterCustomerFailure); });
         }
@@ -1293,6 +1443,7 @@
         }
 
         function sendFailed(err) {
+          if (!deliveryActive()) return;
           if (err && (sentCount > 0 || err.code === 'send_unknown')) err.code = 'send_unknown';
           if (!verified) {
             showCustomerActionRequired(clipboardOk);
@@ -1306,6 +1457,7 @@
           var failure = err && (err.sentCount > 0 || err.code === 'send_unknown') ? 'unknown' :
             (knownNoSendCode || knownNoSendMessage ? 'definite' : 'unknown');
           relayOperation('customer_failed', submissionId, delivery.claimToken, failure).then(function(result) {
+            if (!deliveryActive()) return;
             var state = result && result.customer && result.customer.status;
             if (isOfficialCustomerSuccess(result)) {
               showOfficialRelaySuccess(submissionId);
@@ -1322,7 +1474,7 @@
             } else {
               showCustomerActionRequired(clipboardOk);
             }
-          }).catch(function() { showCustomerUnknown(); });
+          }).catch(function() { if (deliveryActive()) showCustomerUnknown(); });
         }
 
         if (typeof liff === 'undefined') {
@@ -1346,6 +1498,7 @@
         if (!verified) { sendBatches(0).then(function() { showCustomerSentSuccess(); }, sendFailed); return; }
 
         relayOperation('customer_start', submissionId).then(function(started) {
+            if (!deliveryActive()) return;
           var state = started && started.customer && started.customer.status;
           if (state === 'succeeded') {
             if (isOfficialCustomerSuccess(started)) showOfficialRelaySuccess(submissionId);
@@ -1361,17 +1514,20 @@
           }
           delivery.claimToken = started.claimToken;
           sendBatches(0).then(function() {
+            if (!deliveryActive()) return;
             relayOperation('customer_sent', submissionId, delivery.claimToken).then(function(sent) {
+            if (!deliveryActive()) return;
               var sentState = sent && sent.customer && sent.customer.status;
               if (isOfficialCustomerSuccess(sent)) showOfficialRelaySuccess(submissionId);
               else if (sentState === 'succeeded' && sent.customer.source === 'client') showCustomerSentSuccess();
               else showCustomerUnknown();
-            }).catch(function() { showCustomerUnknown(); });
+            }).catch(function() { if (deliveryActive()) showCustomerUnknown(); });
           }, sendFailed);
-        }).catch(function() { showCustomerUnknown(); });
+        }).catch(function() { if (deliveryActive()) showCustomerUnknown(); });
       }
 
       function showCustomerSentSuccess() {
+        if (saveConfirmation) return;
         var actionCard = document.getElementById("customerActionCard");
         actionCard.classList.remove("is-visible");
         actionCard.setAttribute("data-state", "succeeded");
@@ -1383,9 +1539,11 @@
         document.getElementById("goToLineArea").style.display = "none";
         document.getElementById("newFormButton").style.display = "block";
         fireConfetti();
+        showSavedReceiptHeading();
       }
 
       function showOfficialRelaySuccess(submissionId) {
+        if (saveConfirmation) return;
         var actionCard = document.getElementById("customerActionCard");
         actionCard.classList.remove("is-visible");
         actionCard.setAttribute("data-state", "succeeded");
@@ -1398,9 +1556,11 @@
         document.getElementById("newFormButton").style.display = "block";
         fireConfetti();
         notifyStore(submissionId);
+        showSavedReceiptHeading();
       }
 
       function showCustomerUnknown() {
+        if (saveConfirmation) return;
         var actionCard = document.getElementById("customerActionCard");
         actionCard.classList.add("is-visible");
         actionCard.setAttribute("data-state", "unknown");
@@ -1416,15 +1576,19 @@
         document.getElementById("customerActionWarning").style.display = "none";
         document.getElementById("customerActionInstruction").style.display = "none";
         document.getElementById("customerActionPrompt").style.display = "none";
+        showSavedReceiptHeading();
       }
 
       function showCustomerFailed(clipboardOk) {
+        if (saveConfirmation) return;
         showCustomerActionRequired(clipboardOk);
         document.getElementById("customerActionCard").setAttribute("data-state", "failed");
         document.getElementById("successDesc").innerText = "訊息回傳失敗，請依下方步驟完成。";
+        showSavedReceiptHeading();
       }
 
       function showCustomerActionRequired(clipboardOk) {
+        if (saveConfirmation) return;
         var actionCard = document.getElementById("customerActionCard");
         actionCard.classList.add("is-visible");
         actionCard.setAttribute("data-state", "action_required");
@@ -1441,9 +1605,14 @@
         document.getElementById("customerActionWarning").style.display = "block";
         document.getElementById("customerActionInstruction").style.display = "block";
         document.getElementById("customerActionPrompt").style.display = "block";
+        showSavedReceiptHeading();
       }
 
       function startCustomerHandoff(event) {
+        if (saveConfirmation || submissionSaveInFlight || customerHandoffInFlight) {
+          if (event && event.preventDefault) event.preventDefault();
+          return;
+        }
         var text = document.getElementById("copyArea").value;
         var copied = fallbackCopy(text);
         if (!copied && navigator.clipboard && navigator.clipboard.writeText) {
@@ -1458,8 +1627,12 @@
         if (event && event.preventDefault) event.preventDefault();
         actionCard.setAttribute("data-state", "sending");
         document.getElementById("copyStatusMsg").innerText = "正在保留這筆回傳狀態，請稍候再回 LINE。";
+        customerHandoffInFlight = true;
+        var handoffSubmissionId = currentSubmissionId;
+        var handoffVersion = resultViewVersion;
         var handoffUrl = document.getElementById("goToLineArea").href;
-        relayOperation('customer_start', currentSubmissionId).then(function(result) {
+        relayOperation('customer_start', handoffSubmissionId).then(function(result) {
+          if (handoffSubmissionId !== currentSubmissionId || handoffVersion !== resultViewVersion || saveConfirmation) return;
           var customer = result && result.customer || {};
           if (customer.status === 'succeeded') {
             if (customer.source === 'official') showOfficialRelaySuccess(currentSubmissionId);
@@ -1471,9 +1644,12 @@
           } else if (customer.status === 'unknown' || customer.status === 'sending') {
             showCustomerUnknown();
           } else {
+            customerHandoffInFlight = false;
             showCustomerActionRequired(true);
           }
-        }).catch(function() { showCustomerUnknown(); });
+        }).catch(function() {
+          if (handoffSubmissionId === currentSubmissionId && handoffVersion === resultViewVersion && !saveConfirmation) showCustomerUnknown();
+        });
       }
 
       function showCopyResult(clipboardOk) {
@@ -1530,6 +1706,7 @@
       }
 
       function manualCopy() {
+        if (saveConfirmation || submissionSaveInFlight) return;
         var text = document.getElementById("copyArea").value;
         function useFallback() {
           var copied = false;
@@ -1557,6 +1734,7 @@
       }
 
       function onCopySuccess() {
+        if (saveConfirmation || submissionSaveInFlight) return;
         document.getElementById("copyStatusMsg").innerHTML =
           '<span style="color:#28a745;">✅ 訂單內容已複製！</span><br>' +
           '<span style="color:#d63031; font-size:14px;">請點擊下方按鈕，前往 LINE 貼上回傳<br>⚠ 請勿以截圖的方式傳送⚠ </span>';
