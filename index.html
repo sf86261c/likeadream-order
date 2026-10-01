@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-Hant">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -378,34 +378,160 @@
         *, *::before, *::after { animation: none !important; transition: none !important; }
       }
     </style>
+  <style id="award-quality-styles">
+/* Award quality preview: a warm, task-focused paper system. */
+:root { --primary:#7e4e36; --primary-strong:#7e4e36; --primary-dark:#633b28; --primary-glow:rgba(126,78,54,.16); --text:#352920; --text-soft:#514337; --text-muted:#6d5e50; --danger:#ad3428; --success:#28714d; --line-green:#137044; --paper:#fffcf7; --rule:#e4d8cc; --control-border:#9c8877; }
+* { box-sizing:border-box; }
+html { scroll-padding-top:24px; }
+body { margin:0; padding:0; background:#f5efe6; color:var(--text); font-family:'Noto Sans TC','Microsoft JhengHei',system-ui,sans-serif; font-size:16px; line-height:1.65; overflow-x:visible; background-attachment:scroll; }
+body::before,body::after { display:none; }
+.quality-shell { display:grid; grid-template-columns:248px minmax(0,704px); gap:64px; max-width:1080px; padding:52px 32px 64px; margin:0 auto; align-items:start; }
+.quality-aside { position:sticky; top:40px; padding:4px 0; }
+.quality-brand { font:500 29px/1.2 Georgia,serif; letter-spacing:-1px; color:#352920; }
+.quality-brand span { font-style:italic; color:var(--primary); }
+.quality-kicker { margin:12px 0 32px; font-size:11px; font-weight:700; letter-spacing:2px; color:var(--text-muted); }
+.quality-art { width:100%; max-width:200px; height:126px; color:#a16a43; margin:16px 0; }
+.quality-aside h2 { font-family:'Noto Serif TC','PMingLiU',serif; font-size:32px; font-weight:500; line-height:1.55; letter-spacing:1px; text-align:left; color:var(--text); margin:0 0 16px; text-shadow:none; }
+.quality-aside p { font-size:14px; color:var(--text-muted); margin:0 0 24px; }
+.quality-shell:has(#formView.hide) .quality-nav { display:none; }
+.quality-nav { border-top:1px solid #d8c8b7; padding-top:20px; display:grid; gap:4px; }
+.quality-nav a { display:flex; align-items:center; gap:14px; min-height:44px; color:#514337; text-decoration:none; border-radius:8px; font-size:14px; padding:8px 4px; }
+.quality-nav a:hover { background:#ebe0d2; color:#633b28; }
+.quality-nav span { font:italic 14px Georgia,serif; color:#79583e; }
+.quality-aside .quality-aside-note { margin-top:26px; font-size:12px; border-top:1px solid #d8c8b7; padding-top:18px; }
+.quality-content { min-width:0; }
+.container { max-width:none; width:100%; margin:0; background:var(--paper); padding:32px; border:1px solid var(--rule); border-radius:22px; box-shadow:0 8px 28px rgba(69,46,28,.045); min-height:0; backdrop-filter:none; -webkit-backdrop-filter:none; }
+#formView { padding-bottom:32px; }
+.quality-form-header { border-bottom:1px solid var(--rule); padding-bottom:22px; margin-bottom:28px; }
+.quality-form-header .quality-eyebrow { color:var(--primary); font-size:11px; letter-spacing:1.5px; font-weight:700; margin-bottom:8px; }
+h1 { font-size:27px; line-height:1.4; color:var(--text); letter-spacing:.5px; margin:0 0 8px; font-weight:700; }
+.subtitle { text-align:left; color:var(--text-muted); font-size:14px; line-height:1.65; margin:0; }
+.quality-section-title { display:flex; align-items:center; gap:12px; text-align:left; font-size:18px; color:var(--text); font-weight:700; margin:32px 0 16px; padding-top:24px; border-top:1px solid var(--rule); letter-spacing:.2px; text-shadow:none; scroll-margin-top:24px; }
+#orderForm>#contactSection,#plansSection,#formView>#contactSection { border-top:0; padding-top:0; margin-top:0; }
+.quality-section-title span { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; flex-shrink:0; border-radius:50%; background:#eee3d4; color:#6a4630; font:italic 15px Georgia,serif; }
+.quality-help { color:var(--text-muted); font-size:13px; margin:0 0 16px; }
+label { color:var(--text-soft); font-size:14px; line-height:1.5; margin-top:18px; margin-bottom:8px; font-weight:600; }
+input:not([type=checkbox]):not([type=radio]):not([type=hidden]),select,textarea { min-width:0; min-height:48px; width:100%; padding:12px 14px; border:1px solid var(--control-border); border-radius:10px; background:#fffefb; color:var(--text); font:400 16px/1.4 'Noto Sans TC','Microsoft JhengHei',system-ui,sans-serif; box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none; transition:border-color .15s,background-color .15s; }
+input::placeholder,textarea::placeholder { color:#746b62; opacity:1; }
+input:focus,select:focus,textarea:focus { background:#fff; border-color:#7e4e36; box-shadow:none; transform:none; }
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible { outline:3px solid #7e4e36; outline-offset:3px; }
+input:disabled,select:disabled { background:#eee8df; color:#72685f; border-color:#c9bcaf; opacity:1; }
+input[type=checkbox],input[type=radio] { accent-color:var(--primary); }
+.row { gap:16px; }
+.col-6,.col-8,.col-4 { min-width:0; }
+.item-card,.card { background:#fffefb; border:1px solid #dfd2c3; border-left:3px solid #b9875d; border-radius:14px; padding:20px; margin-bottom:18px; backdrop-filter:none; -webkit-backdrop-filter:none; box-shadow:none; animation:none; transition:border-color .15s; }
+.item-card:hover { transform:none; box-shadow:none; border-color:#b9875d; }
+.card-header,.card-title { color:#514337; font-size:14px; font-weight:700; margin:0 0 14px; border-bottom:1px solid var(--rule); padding-bottom:12px; min-height:44px; }
+.card-title { padding-right:46px; }
+.btn-remove,.btn-del-prod { width:44px; height:44px; min-width:44px; background:#f8ece7; color:#993a2c; border:1px solid #ba8477; border-radius:10px; font-size:22px; cursor:pointer; box-shadow:none; }
+.btn-remove:hover,.btn-del-prod:hover { background:#f0d8d0; color:#873123; transform:none; box-shadow:none; }
+.btn-del-prod { right:8px; top:8px; }
+.product-row:has(.btn-del-prod) { padding-top:60px; }
+.spec-grid { background:#f5eee4; padding:14px; border:0; border-radius:10px; gap:14px; }
+.spec-grid>div:last-child { grid-column:1/-1; }
+.spec-label { display:block; font-size:13px; color:#62503f; margin-bottom:6px; }
+.split-row { gap:16px; border-top:1px solid var(--rule); margin-top:18px; padding-top:16px; }
+.split-group { min-width:0; text-align:left; }
+.split-group label { font-size:13px; color:#62503f; }
+.split-group input { border:1px solid var(--control-border); border-radius:10px; }
+.item-subtotal { color:#62503f; font-size:13px; margin-top:12px; }
+.product-row { padding:14px; border:1px solid var(--rule); background:var(--paper); border-radius:10px; animation:none; }
+.spec-row { gap:10px; margin-top:12px; flex-wrap:wrap; }
+.spec-row select { flex:1 1 140px; background:#fffefb; }
+.sticky-footer,.payment-box { background:#f1e7d9 !important; border:1px solid #d7c3ab !important; border-radius:14px !important; padding:20px !important; box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none; margin-top:20px; }
+.sticky-footer { text-align:left; }
+.footer-stat,.total-price { color:#633b28; font-size:20px; font-weight:700; }
+.footer-detail,.price-detail { color:#66513f; opacity:1; font-size:13px; line-height:1.6; }
+.total-price { border-bottom:1px solid #d7c3ab; padding-bottom:14px; }
+.store-info-box { background:#edf2e9 !important; border:1px solid #a9baa2 !important; color:#345238; padding:16px !important; border-radius:12px !important; backdrop-filter:none; -webkit-backdrop-filter:none; box-shadow:none; }
+#noticeBox,.notice-box { background:#fff1e7 !important; color:#8c3528 !important; border:1px solid #d8a78a !important; border-left:3px solid #ad3428 !important; border-radius:10px !important; font-size:14px; padding:14px !important; backdrop-filter:none; -webkit-backdrop-filter:none; box-shadow:none; }
+.split-checkbox-wrapper { background:#f5eee4; border:1px solid #d7c3ab; padding:14px; border-radius:10px; backdrop-filter:none; -webkit-backdrop-filter:none; gap:8px; }
+.split-checkbox-wrapper label { color:#514337; font-size:14px; font-weight:500; }
+.split-hint { color:#963c2d; padding-left:0; }
+.plan-group { gap:12px; }
+.plan-item { margin:0; padding:16px; min-height:72px; gap:14px; background:#fffefb; border:1px solid #9c8877; border-radius:12px; box-shadow:none; }
+.plan-item:hover { transform:none; box-shadow:none; background:#f8efe2; border-color:#7e4e36; }
+.plan-item:has(input:checked) { background:#f1e6d6; border:2px solid #7e4e36; padding:15px; box-shadow:none; animation:none; }
+.plan-text { align-items:center; gap:10px; font-size:15px; line-height:1.6; min-width:0; }
+.price-tag { white-space:nowrap; color:#873f2c; font-size:17px; }
+.radio-group { gap:12px; }
+.radio-item { margin:0; min-height:56px; padding:14px; border:1px solid #9c8877; border-radius:10px; font-size:14px; }
+.radio-item:hover,.radio-item:active { transform:none; }
+.radio-checked { background:#f1e6d6; border-color:#7e4e36; color:#633b28; animation:none; }
+.radio-item input[type=radio] { flex-shrink:0; margin:0; }
+.btn,.btn-sm,.btn-copy-small { font-family:inherit; min-height:48px; border-radius:10px; transition:background-color .15s,border-color .15s; line-height:1.5; }
+.btn { padding:14px 18px; font-size:16px; }
+.btn::before { display:none; }
+.btn-submit { background:#7e4e36 !important; color:#fff !important; border:1px solid #7e4e36 !important; box-shadow:none; font-weight:700; text-shadow:none; }
+.btn-submit:hover:not(:disabled) { background:#633b28 !important; box-shadow:none; transform:none; }
+.btn-submit:not(:disabled) { border-bottom:1px solid #7e4e36; }
+.btn-submit:active:not(:disabled) { transform:none; border-bottom-width:1px; box-shadow:none; background:#58321f !important; }
+.btn-submit:disabled { background:#e9e0d6 !important; color:#74675b !important; border-color:#cbbcaa !important; opacity:1; cursor:not-allowed; }
+.btn-add,.btn-sm { background:transparent; border:1px dashed #97765a; color:#6f472f; box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none; font-weight:600; }
+.btn-add:hover:not(:disabled),.btn-sm:hover { background:#f1e7d9; color:#633b28; border-color:#7e4e36; box-shadow:none; transform:none; }
+.btn-outline { color:#514337; border:1px solid #9c8877; background:transparent; backdrop-filter:none; box-shadow:none; }
+.btn-outline:hover { background:#f1e7d9; transform:none; box-shadow:none; }
+.btn-copy-small { color:#633b28; border:1px solid #9c8877; background:#fffefb; padding:10px 12px; font-size:13px; margin:8px 0; }
+.btn-copy-small:hover { transform:none; background:#f1e7d9; }
+#goToLineArea,#successLinePayArea>a,.customer-action-cta { background:#137044 !important; color:#fff !important; border:1px solid #137044 !important; border-radius:10px; padding:14px 18px; font-size:16px; font-weight:700; min-height:52px; text-align:center; text-decoration:none; box-shadow:none; }
+#goToLineArea:hover,#successLinePayArea>a:hover,.customer-action-cta:hover { background:#0e5935 !important; }
+#liffStatus { color:#6d5e50 !important; font-size:13px !important; }
+#btnHint,.quality-content [style*='color:#888'],.quality-content [style*='color:#999'],.quality-content [style*='color:#ccc'],.quality-content [style*='color:#d4a373'] { color:#6d5e50 !important; }
+.quality-content [style*='color:#06c755'],.quality-content [style*='color:#28a745'] { color:#216845 !important; }
+.bank-info { color:#514337; }
+.bank-highlight { display:inline-block; font-variant-numeric:tabular-nums; letter-spacing:.5px; }
+.banner-container { width:100%; max-width:none; margin:0 0 24px; overflow:hidden; border:1px solid var(--rule); border-radius:18px; animation:none; }
+.banner-img { min-height:0; }
+.success-card { padding:12px 0; }
+.success-title { font-size:24px; color:#352920; }
+.success-desc,.stored-status { color:#6d5e50; font-size:15px; line-height:1.7; }
+.success-icon { color:#8c623a; font-size:48px; filter:none; }
+.success-icon.sent { color:#28714d; }
+#copyArea { display:none; }
+.order-summary { background:#f5eee4 !important; border:1px solid var(--rule) !important; border-radius:12px !important; padding:18px !important; backdrop-filter:none; box-shadow:none; }
+.summary-row { gap:16px; align-items:flex-start; font-size:14px; }
+.summary-row>span:first-child { flex-shrink:0; }
+.summary-row>span:last-child { min-width:0; text-align:right; overflow-wrap:anywhere; }
+.summary-item,.summary-recipient { overflow-wrap:anywhere; }
+.customer-action-card { background:#fff1e7; border:1px solid #d29a80; border-radius:12px; }
+.customer-action-title { color:#963c2d; animation:none; }
+.customer-action-cta-wrap { background:#fff1e7; }
+.summary-details>summary { color:#514337; border-color:#9c8877; background:#fffefb; }
+hr { background:var(--rule) !important; margin:28px 0 !important; }
+.enter,.cake-emoji,.footer-stat.bump,.total-price.bump,.plan-item input:checked,.plan-item:has(input:checked) .price-tag,.split-checkbox-wrapper:has(input:checked),.split-checkbox-wrapper input:checked,#noticeBox,#storeInfoBox,#splitHint,#addressSection,#successView.show,#successView.show .success-icon,#manualCopyBox,.view-out { animation:none !important; opacity:1; filter:none; }
+@media(max-width:960px) { .quality-shell { grid-template-columns:180px minmax(0,1fr); gap:32px; padding:32px 24px; } .quality-aside h2 { font-size:27px; } .quality-brand { font-size:25px; } .container { padding:24px; } }
+@media(max-width:700px) { .quality-shell { display:block; padding:24px 16px 40px; } .quality-aside { position:static; padding:0 4px 24px; } .quality-aside h2,.quality-aside p,.quality-art,.quality-nav,.quality-aside-note { display:none; } .quality-brand { font-size:28px; } .quality-kicker { margin:7px 0 0; font-size:10px; } .container { padding:24px 20px; border-radius:18px; } .quality-form-header { padding-bottom:20px; margin-bottom:22px; } h1 { font-size:24px; } .quality-section-title { margin-top:28px; padding-top:22px; font-size:17px; } .banner-container { margin-bottom:18px; } .plan-item { padding:14px; } .plan-item:has(input:checked) { padding:13px; } .plan-text { font-size:14px; } .item-card,.card { padding:16px; } .row { gap:12px; } }
+@media(max-width:480px) { .row { flex-direction:column; } .col-6,.col-8,.col-4 { width:100%; } .spec-grid { grid-template-columns:1fr; } .spec-grid>div:last-child { grid-column:auto; } .radio-group { flex-direction:column; gap:10px; } .radio-item { flex:none; } .split-row { gap:12px; } .quality-shell { padding-left:12px; padding-right:12px; } }
+@media(max-width:350px) { .container { padding:20px 14px; } .plan-text { flex-direction:column; align-items:flex-start; gap:2px; } .plan-item { gap:10px; } .item-card,.card { padding:14px; } .split-row { flex-direction:column; } }
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+    </style>
   </head>
   <body>
+<div class="quality-shell"><aside class="quality-aside" aria-label="表單導覽"><div class="quality-brand">Likea<span>Dream</span></div><div class="quality-kicker">ORDER FORM</div><svg class="quality-art" viewBox="0 0 220 132" aria-hidden="true" fill="none"><path d="M30 109h160M45 99h130V67L109 45 45 67v32Z" stroke="currentColor" stroke-width="1.5"/><path d="m45 67 64 21 66-21M109 88v11M58 57v-9l52-18 52 18v9M78 41l15 5m31-6 14 5M78 60v16m62-17v15" stroke="currentColor" stroke-width="1.5"/><path d="M22 36h9m-4.5-4.5v9M179 28h11m-5.5-5.5v11" stroke="currentColor"/><circle cx="195" cy="69" r="3" stroke="currentColor"/></svg><h2>一份甜，<br>一份心意。</h2><p>選好禮盒，把喜悅分享給重要的人。</p><nav class="quality-nav" aria-label="表單段落"><a href="#contactSection"><span aria-hidden="true">01</span>訂購人資料</a><a href="#productsSection"><span aria-hidden="true">02</span>選購禮盒</a><a href="#deliverySection"><span aria-hidden="true">03</span>配送與日期</a><a href="#paymentSection"><span aria-hidden="true">04</span>付款與確認</a></nav><p class="quality-aside-note">填寫完成後，請確認資料並依畫面指示回傳 LINE。</p></aside><main class="quality-content">
 
     <div class="container" id="formView">
       <div id="liffStatus" style="font-size:12px; color:#ccc; text-align:center; margin-bottom:5px;">Loading...</div>
 
-      <h2 class="enter" style="--i:0;"><span class="cake-emoji">🍰</span> LikeaDream訂購單</h2>
-      <p class="subtitle enter" style="--i:1;">請填寫基本資料與選購品項</p>
+      <header class="quality-form-header"><div class="quality-eyebrow">ORDER FORM</div><h1>訂購單</h1><p class="subtitle">請填寫基本資料與選購品項。標示 * 的欄位為必填。</p></header>
 
       <form id="orderForm" onsubmit="event.preventDefault(); prepareAndSubmit()">
-        <div class="enter" style="--i:2;">
-        <label class="required">訂購人姓名</label>
-        <input type="text" id="cName" placeholder="請輸入您的姓名" required>
+        <h2 class="quality-section-title" id="contactSection"><span aria-hidden="true">01</span>訂購人資料</h2><div class="enter" style="--i:2;">
+        <label class="required" for="cName">訂購人姓名</label>
+        <input type="text" id="cName" placeholder="請輸入您的姓名" required autocomplete="name">
         </div>
 
         <div class="enter" style="--i:3;">
-        <label class="required">聯絡電話 (10碼)</label>
-        <input type="tel" id="cPhone" placeholder="範例：0912345678" maxlength="10" pattern="\d{10}" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '');" required>
+        <label class="required" for="cPhone">聯絡電話 (10碼)</label>
+        <input type="tel" id="cPhone" placeholder="範例：0912345678" maxlength="10" pattern="\d{10}" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '');" required autocomplete="tel">
         </div>
 
         <div class="enter" style="--i:4;">
-        <label>載具/統一編號 (選填)</label>
+        <label for="cTaxId">載具/統一編號 (選填)</label>
         <input type="text" id="cTaxId" placeholder="若需載具/統編請填寫">
         </div>
 
         <div class="enter" style="--i:5;">
-        <hr style="border:0; border-top:1px dashed #ddd; margin: 20px 0;">
-        <label style="font-size:1.1rem; color:#d4a373;">選購品項</label>
+        <h2 class="quality-section-title" id="productsSection"><span aria-hidden="true">02</span>選購禮盒</h2>
         <div style="font-size:12px; color:#999; margin-bottom:10px;">請分別填寫每個品項的「自取」與「寄送」數量</div>
 
         <div id="itemList"></div>
@@ -419,9 +545,9 @@
           </div>
         </div>
 
-        <div id="addressSection">
-          <label class="required">配送地址</label>
-          <input type="text" id="cAddress" placeholder="縣市/區域/路段...">
+        <h2 class="quality-section-title" id="deliverySection"><span aria-hidden="true">03</span>配送與日期</h2><div id="addressSection">
+          <label class="required" for="cAddress">配送地址</label>
+          <input type="text" id="cAddress" placeholder="縣市/區域/路段..." autocomplete="street-address">
 
           <div class="split-checkbox-wrapper">
             <input type="checkbox" id="splitShipCheck" onchange="toggleSplitHint()">
@@ -441,8 +567,8 @@
 
         <div class="row enter" style="--i:7;">
           <div class="col-6">
-            <label class="required" id="dateLabel">預計收件/取貨日</label>
-            <input type="date" id="cDate" required onchange="updateNotices()">
+            <label class="required" id="dateLabel" for="cDate">預計收件/取貨日</label>
+            <input type="date" id="cDate" required onchange="updateNotices()" aria-describedby="noticeBox">
             <div style="font-size:12px; color:#888; margin-top:2px;">*週日無配送</div>
             <div style="color:#d63031; font-weight:900; font-size:13px; margin-top:5px; line-height:1.4; animation: pulse 1.5s ease-in-out 2;">
               蜂蜜蛋糕(同旋轉筒)請至少保留10個日曆天<br>
@@ -450,7 +576,7 @@
             </div>
           </div>
           <div class="col-6">
-            <label>時段</label>
+            <label for="cTime">時段</label>
             <select id="cTime" onchange="updateNotices()">
               <option value="不指定">不指定</option>
               <option value="13:00前">13:00前</option>
@@ -459,15 +585,15 @@
           </div>
         </div>
 
-        <div id="noticeBox" style="display:none; margin-top:10px; padding:12px; background:#fff0f0; border-left:5px solid #d63031; color:#d63031; font-size:14px; font-weight:bold;"></div>
+        <div id="noticeBox" style="display:none; margin-top:10px; padding:12px; background:#fff0f0; border-left:5px solid #d63031; color:#d63031; font-size:14px; font-weight:bold;" role="status"></div>
 
         <div class="enter" style="--i:8;">
-        <label>備註 (選填)</label>
+        <label for="cNote">備註 (選填)</label>
         <input type="text" id="cNote" placeholder="例如：管理室代收...">
         </div>
 
-        <div class="payment-box enter" style="--i:9; background:#fff8ee; border:2px solid #e4dccb; border-radius:10px; padding:15px; margin-top:25px;">
-          <label style="margin-top:0;">付款方式</label>
+        <h2 class="quality-section-title" id="paymentSection"><span aria-hidden="true">04</span>付款與確認</h2><div class="payment-box enter" style="--i:9; background:#fff8ee; border:2px solid #e4dccb; border-radius:10px; padding:15px; margin-top:25px;">
+          <label style="margin-top:0;" for="paymentMethod">付款方式</label>
           <select id="paymentMethod">
             <option value="匯款轉帳" selected>匯款轉帳</option>
             <option value="門市付款" id="storePaymentOption" hidden disabled>門市付款</option>
@@ -482,14 +608,14 @@
       </form>
     </div>
 
-    <div class="container hide" id="successView">
+    <div class="container hide" id="successView" role="region" aria-label="送出結果">
       <div class="success-card">
         <i id="successIcon" class="bi bi-hourglass-split success-icon"></i>
         <div id="successTitle" class="success-title enter" style="--i:1;">資料已儲存</div>
         <p id="successDesc" class="success-desc enter" style="--i:2;">資料已儲存，正在回傳 LINE 訊息…</p>
 
         <div style="margin-bottom: 25px;">
-          <textarea id="copyArea" readonly style="position:absolute; left:-9999px;"></textarea>
+          <textarea id="copyArea" readonly style="position:absolute; left:-9999px;" aria-label="回傳明細內容"></textarea>
           <div id="copyStatusMsg" class="stored-status enter" style="--i:3;">資料已儲存，正在回傳 LINE 訊息…</div>
           <div id="receiptConfirmationActions" aria-live="polite">
             <button id="confirmReceiptButton" type="button" class="btn btn-outline" onclick="retryReceiptConfirmation()" style="display:none; min-height:48px;">重新確認收件</button>
@@ -526,7 +652,9 @@
       </div>
     </div>
 
-    <script>
+
+</main></div>
+<script>
       var FORM_SUBMISSIONS_API = "https://likeadreamcastella.zeabur.app/api/form-submissions";
       var FORM_RELAY_API = "https://likeadreamcastella.zeabur.app/api/form-relay";
       var BLOCKED_DATES_API = "https://likeadreamcastella.zeabur.app/api/blocked-dates";
@@ -1043,19 +1171,19 @@
         var div = document.createElement("div");
         div.className = "item-card";
         div.innerHTML =
-          '<div class="card-header"><b>品項 #' + index + '</b>' + (index > 1 ? '<button type="button" class="btn-remove" onclick="removeItem(this)">×</button>' : '') + '</div>' +
-          '<select class="main-select" onchange="updateOptions(this)" required>' +
+          '<div class="card-header"><b>品項 #' + index + '</b>' + (index > 1 ? '<button type="button" class="btn-remove" aria-label="移除此項" onclick="removeItem(this)">×</button>' : '') + '</div>' +
+          '<select class="main-select" aria-label="商品" onchange="updateOptions(this)" required>' +
             '<option value="" disabled selected>請選擇商品...</option>' +
             Object.keys(PRODUCT_DATA).map(function(n) { return '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>'; }).join('') +
           '</select>' +
           '<div class="spec-grid">' +
-            '<div><span class="spec-label">口味</span><select class="spec-flavor" required disabled><option value="">請選商品</option></select></div>' +
-            '<div><span class="spec-label">包裝</span><select class="spec-pack" onchange="updateStamp(this)" required disabled><option value="">請選商品</option></select></div>' +
-            '<div><span class="spec-label">烙印</span><select class="spec-stamp" required disabled><option value="">請選商品</option></select></div>' +
+            '<div><span class="spec-label">口味</span><select class="spec-flavor" aria-label="口味" required disabled><option value="">請選商品</option></select></div>' +
+            '<div><span class="spec-label">包裝</span><select class="spec-pack" aria-label="包裝" onchange="updateStamp(this)" required disabled><option value="">請選商品</option></select></div>' +
+            '<div><span class="spec-label">烙印</span><select class="spec-stamp" aria-label="烙印" required disabled><option value="">請選商品</option></select></div>' +
           '</div>' +
           '<div class="split-row">' +
-            '<div class="split-group"><label>🏪 門市自取</label><input type="number" class="spec-pick" value="0" min="0" placeholder="0" oninput="calcTotals()"></div>' +
-            '<div class="split-group"><label>🚚 宅配寄送</label><input type="number" class="spec-ship" value="0" min="0" placeholder="0" oninput="calcTotals()"></div>' +
+            '<div class="split-group"><label>🏪 門市自取</label><input type="number" class="spec-pick" aria-label="門市自取數量" value="0" min="0" placeholder="0" oninput="calcTotals()"></div>' +
+            '<div class="split-group"><label>🚚 宅配寄送</label><input type="number" class="spec-ship" aria-label="宅配寄送數量" value="0" min="0" placeholder="0" oninput="calcTotals()"></div>' +
           '</div>' +
           '<div class="item-subtotal">本項合計: <span class="card-subtotal">0</span> 盒</div>';
         list.appendChild(div);
