@@ -592,10 +592,11 @@ hr { background:var(--rule) !important; margin:28px 0 !important; }
         <input type="text" id="cNote" placeholder="例如：管理室代收...">
         </div>
 
-        <h2 class="quality-section-title" id="paymentSection"><span aria-hidden="true">04</span>付款與確認</h2><div class="payment-box enter" style="--i:9; background:#fff8ee; border:2px solid #e4dccb; border-radius:10px; padding:15px; margin-top:25px;">
+        <h2 class="quality-section-title" id="paymentSection"><span aria-hidden="true">04</span>預計付款方式</h2><div class="payment-box enter" style="--i:9; background:#fff8ee; border:2px solid #e4dccb; border-radius:10px; padding:15px; margin-top:25px;">
           <label style="margin-top:0;" for="paymentMethod">付款方式</label>
           <select id="paymentMethod">
             <option value="匯款轉帳" selected>匯款轉帳</option>
+            <option value="LINE PAY">LINE PAY</option>
             <option value="門市付款" id="storePaymentOption" hidden disabled>門市付款</option>
           </select>
         </div>
@@ -1447,6 +1448,7 @@ hr { background:var(--rule) !important; margin:28px 0 !important; }
             '<div class="summary-row"><span>配送概況</span><span class="badge">自取' + escapeHtml(totals.allPick) + ' / 寄送' + escapeHtml(totals.allShip) + '</span></div>' +
             '<div class="summary-row"><span>日期</span><span>' + escapeHtml(data.cDate) + ' (' + escapeHtml(data.cTime) + ')</span></div>' +
             '<div class="summary-row"><span>地址</span><span>' + escapeHtml(totals.allShip > 0 ? data.cAddress : "門市自取") + '</span></div>' +
+            '<div class="summary-row"><span>預計付款方式</span><span>' + escapeHtml(data.paymentMethod) + '</span></div>' +
             '<div style="margin: 15px 0 10px 0; border-top:1px dashed #ddd; padding-top:10px; font-weight:bold; color:#555;">訂購品項</div>' +
             itemsHtml +
             '<div style="margin-top:10px; font-size:12px; color:#999;">備註：' + escapeHtml(data.cNote || "無") + '</div>';
