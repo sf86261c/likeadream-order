@@ -614,6 +614,7 @@ hr { background:var(--rule) !important; margin:28px 0 !important; }
         <i id="successIcon" class="bi bi-hourglass-split success-icon"></i>
         <div id="successTitle" class="success-title enter" style="--i:1;">資料已儲存</div>
         <p id="successDesc" class="success-desc enter" style="--i:2;">資料已儲存，正在回傳 LINE 訊息…</p>
+        <p id="calendarSyncNotice" role="status" hidden>表單已收到，但客服系統同步狀態尚待確認。請回 LINE 聯絡客服，請勿重複填寫。</p>
 
         <div style="margin-bottom: 25px;">
           <textarea id="copyArea" readonly style="position:absolute; left:-9999px;" aria-label="回傳明細內容"></textarea>
@@ -769,6 +770,7 @@ hr { background:var(--rule) !important; margin:28px 0 !important; }
           submissionId: submissionId,
           customerTexts: body.customerTexts.slice(),
           applicationNo: body.applicationNo || null,
+          calendarSync: body.calendarSync === 'delivered' ? 'delivered' : 'needs_attention',
         };
       }
 
@@ -1399,6 +1401,7 @@ hr { background:var(--rule) !important; margin:28px 0 !important; }
         .then(function(saved) {
           if (submissionId !== currentSubmissionId) return;
           savedWithVerifiedIdentity = true;
+          document.getElementById("calendarSyncNotice").hidden = saved.calendarSync === "delivered";
           var customerText = saved.customerTexts.join("\n\n");
           document.getElementById("copyArea").value = customerText;
           showSuccess(orderData, summaryHtmlItems, totals);
